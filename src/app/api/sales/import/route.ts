@@ -89,16 +89,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create ImportBatch record
-    const batch = await db.importBatch.create({
-      data: {
-        fileName: file.name,
-        totalRecords: dataRows.length,
-        importDate: new Date(),
-      },
-    })
-
-    // Create all SalesData records
+    // Parse all rows into SalesData records
     const salesDataRecords = dataRows.map((row) => {
       // Parse tanggal - Excel date format like "2026-05-01 18:17"
       const tanggalRaw = row['A']
@@ -146,19 +137,71 @@ export async function POST(request: NextRequest) {
         potongan: toFloatOrNull(row['R']),
         potonganV: toFloatOrNull(row['S']),
         settle: toFloatOrZero(row['T']),
-        importBatchId: batch.id,
       }
     })
 
-    // Insert all records using createMany for performance
+    // ─── Dedup validation by idPenjualan ──────────────────
+    // Extract all idPenjualan from the import
+    const importIds = salesDataRecords
+      .map((r) => r.idPenjualan)
+      .filter((id) => id !== '')
+
+    // Find existing idPenjualan in the database
+    const existingRecords = importIds.length > 0
+      ? await db.salesData.findMany({
+          where: { idPenjualan: { in: importIds } },
+          select: { idPenjualan: true },
+        })
+      : []
+
+    const existingIdSet = new Set(existingRecords.map((r) => r.idPenjualan))
+
+    // Filter out duplicates — only keep rows whose idPenjualan doesn't already exist
+    const uniqueRecords = salesDataRecords.filter(
+      (r) => r.idPenjualan === '' || !existingIdSet.has(r.idPenjualan)
+    )
+
+    const duplicateCount = salesDataRecords.length - uniqueRecords.length
+
+    if (duplicateCount > 0) {
+      console.log(`Skipped ${duplicateCount} duplicate rows (idPenjualan already exists)`)
+    }
+
+    if (uniqueRecords.length === 0) {
+      return NextResponse.json(
+        {
+          error: `Semua ${salesDataRecords.length} data sudah ada (ID Penjualan duplikat). Tidak ada data baru yang diimport.`,
+          duplicateCount,
+        },
+        { status: 409 }
+      )
+    }
+
+    // Create ImportBatch record
+    const batch = await db.importBatch.create({
+      data: {
+        fileName: file.name,
+        totalRecords: uniqueRecords.length,
+        importDate: new Date(),
+      },
+    })
+
+    // Add importBatchId to all unique records
+    const recordsWithBatch = uniqueRecords.map((record) => ({
+      ...record,
+      importBatchId: batch.id,
+    }))
+
+    // Insert all unique records using createMany for performance
     await db.salesData.createMany({
-      data: salesDataRecords,
+      data: recordsWithBatch,
     })
 
     return NextResponse.json({
       success: true,
       batchId: batch.id,
-      totalRecords: dataRows.length,
+      totalRecords: uniqueRecords.length,
+      skippedDuplicates: duplicateCount,
     })
   } catch (error) {
     console.error('Error importing Excel:', error)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 interface HourlyBreakdown {
   hour: number
@@ -20,35 +21,50 @@ interface CrewScoring {
   hourlyBreakdown: HourlyBreakdown[]
 }
 
+/**
+ * Get start and end of day in GMT+7 as UTC Date objects
+ */
+function getGMT7DayRange(dateStr: string): { start: Date; end: Date } {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  // Start of day in GMT+7 (00:00:00 +07:00 = 17:00:00 UTC previous day)
+  const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0) - 7 * 60 * 60 * 1000)
+  // End of day in GMT+7 (23:59:59.999 +07:00 = 16:59:59.999 UTC same day)
+  const end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - 7 * 60 * 60 * 1000)
+  return { start, end }
+}
+
+/**
+ * Get today's date string in GMT+7
+ */
+function getTodayGMT7(): string {
+  const now = new Date()
+  const gmt7 = new Date(now.getTime() + 7 * 60 * 60 * 1000 + now.getTimezoneOffset() * 60 * 1000)
+  const year = gmt7.getFullYear()
+  const month = String(gmt7.getMonth() + 1).padStart(2, '0')
+  const day = String(gmt7.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const dateParam = searchParams.get('date')
+    const dateParam = searchParams.get('date') || getTodayGMT7()
     const crewId = searchParams.get('crewId') || undefined
 
-    // Parse the date or default to today
-    let targetDate: Date
-    if (dateParam) {
-      targetDate = new Date(dateParam + 'T00:00:00.000Z')
-    } else {
-      const now = new Date()
-      targetDate = new Date(
-        Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-      )
-    }
+    // Get date range in GMT+7
+    const { start: startOfDay, end: endOfDay } = getGMT7DayRange(dateParam)
 
-    // Build date range for the target date (UTC)
-    const startOfDay = new Date(targetDate)
-    startOfDay.setUTCHours(0, 0, 0, 0)
+    // ─── Fetch ALL crews first ────────────────────────────
+    const allCrews = await db.crew.findMany({
+      include: {
+        group: {
+          select: { namaGrup: true },
+        },
+      },
+    })
 
-    const endOfDay = new Date(targetDate)
-    endOfDay.setUTCHours(23, 59, 59, 999)
-
-    // Build where clause
-    const whereClause: {
-      tanggal: { gte: Date; lte: Date }
-      crewId: string | { not: null }
-    } = {
+    // Build where clause for sales data
+    const whereClause: Prisma.SalesDataWhereInput = {
       tanggal: {
         gte: startOfDay,
         lte: endOfDay,
@@ -88,11 +104,27 @@ export async function GET(request: NextRequest) {
       }
     >()
 
+    // Initialize all crews with 0 values (so crews with no sales still appear)
+    for (const crew of allCrews) {
+      if (crewId && crew.id !== crewId) continue
+      crewMap.set(crew.id, {
+        crewId: crew.id,
+        namaCrew: crew.namaCrew,
+        fotoUrl: crew.fotoUrl,
+        idKaryawan: crew.idKaryawan,
+        groupName: crew.group?.namaGrup || null,
+        hourlyMap: new Map(),
+        totalSettle: 0,
+        totalQty: 0,
+      })
+    }
+
     for (const sale of salesData) {
       if (!sale.crew) continue
 
       const cId = sale.crewId!
       if (!crewMap.has(cId)) {
+        // Crew exists in sales but not in our allCrews list (edge case)
         crewMap.set(cId, {
           crewId: cId,
           namaCrew: sale.crew.namaCrew,
@@ -107,15 +139,15 @@ export async function GET(request: NextRequest) {
 
       const crewData = crewMap.get(cId)!
 
-      // Extract hour from tanggal
+      // Extract hour from tanggal in GMT+7
       const saleDate = new Date(sale.tanggal)
-      const hour = saleDate.getUTCHours()
+      const gmt7Hour = (saleDate.getUTCHours() + 7) % 24
 
       // Update hourly breakdown
-      if (!crewData.hourlyMap.has(hour)) {
-        crewData.hourlyMap.set(hour, { qty: 0, settle: 0 })
+      if (!crewData.hourlyMap.has(gmt7Hour)) {
+        crewData.hourlyMap.set(gmt7Hour, { qty: 0, settle: 0 })
       }
-      const hourData = crewData.hourlyMap.get(hour)!
+      const hourData = crewData.hourlyMap.get(gmt7Hour)!
       hourData.qty += sale.qty
       hourData.settle += sale.settle
 
@@ -160,7 +192,7 @@ export async function GET(request: NextRequest) {
     // Sort by totalSettle descending
     results.sort((a, b) => b.totalSettle - a.totalSettle)
 
-    return NextResponse.json(results)
+    return NextResponse.json({ data: results, date: dateParam })
   } catch (error) {
     console.error('Error calculating scoring:', error)
     return NextResponse.json(

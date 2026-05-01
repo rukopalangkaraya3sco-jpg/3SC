@@ -10,6 +10,10 @@ import {
   Calendar,
   Users,
   ArrowUpDown,
+  Crown,
+  Medal,
+  Award,
+  Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -48,6 +52,7 @@ interface ScoringSummary {
   avgBasketSize: number
   avgPricePoint: number
   crewCount: number
+  activeCrewCount?: number
 }
 
 type SortField = 'totalSettle' | 'totalQty' | 'basketSize' | 'pricePoint'
@@ -66,11 +71,12 @@ const formatCurrency = (value: number) =>
     .replace('IDR', 'Rp')
     .trim()
 
-const getTodayString = () => {
+const getTodayGMT7 = () => {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
+  const gmt7 = new Date(now.getTime() + 7 * 60 * 60 * 1000 + now.getTimezoneOffset() * 60 * 1000)
+  const year = gmt7.getFullYear()
+  const month = String(gmt7.getMonth() + 1).padStart(2, '0')
+  const day = String(gmt7.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
@@ -96,10 +102,108 @@ const getRankBg = (rank: number) => {
   return 'bg-white/5 border-border/30'
 }
 
+const getRankIcon = (rank: number) => {
+  if (rank === 1) return Crown
+  if (rank === 2) return Medal
+  if (rank === 3) return Award
+  return null
+}
+
+// ─── Top Crew Podium Component ───────────────────────────
+
+function TopCrewPodium({ crew, rank }: { crew: ScoringCrew; rank: 1 | 2 | 3 }) {
+  const isFirst = rank === 1
+
+  const borderColor = rank === 1
+    ? 'border-yellow-500/40'
+    : rank === 2
+      ? 'border-gray-400/40'
+      : 'border-amber-600/40'
+
+  const glowColor = rank === 1
+    ? 'shadow-yellow-500/20'
+    : rank === 2
+      ? 'shadow-gray-400/20'
+      : 'shadow-amber-600/20'
+
+  const badgeBg = rank === 1
+    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+    : rank === 2
+      ? 'bg-gray-400/10 text-gray-300 border-gray-400/20'
+      : 'bg-amber-600/10 text-amber-500 border-amber-600/20'
+
+  const medalGradient = rank === 1
+    ? 'from-yellow-500 to-amber-600'
+    : rank === 2
+      ? 'from-gray-300 to-gray-500'
+      : 'from-amber-600 to-amber-800'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: (rank - 1) * 0.15 }}
+      className={`
+        flex flex-col items-center gap-3 p-5 rounded-xl border ${borderColor}
+        bg-card/80 backdrop-blur-sm shadow-lg ${glowColor}
+        ${isFirst ? 'lg:-mt-4 lg:pb-6' : 'lg:mt-4'}
+        relative overflow-hidden
+      `}
+    >
+      {/* Decorative background */}
+      <div className={`absolute inset-0 bg-gradient-to-b ${medalGradient} opacity-5`} />
+
+      {/* Rank Badge */}
+      <div className="relative z-10">
+        <div className={`
+          inline-flex items-center justify-center size-10 rounded-full
+          bg-gradient-to-br ${medalGradient} shadow-lg
+        `}>
+          {rank === 1 && <Crown className="size-5 text-white" />}
+          {rank === 2 && <Medal className="size-5 text-white" />}
+          {rank === 3 && <Award className="size-5 text-white" />}
+        </div>
+      </div>
+
+      {/* Avatar */}
+      <Avatar className={`size-16 ring-2 ${borderColor} relative z-10`}>
+        {crew.fotoUrl && crew.fotoUrl !== '-' && (
+          <AvatarImage src={crew.fotoUrl} alt={crew.namaCrew} />
+        )}
+        <AvatarFallback className="gradient-emerald text-white text-lg font-bold">
+          {getInitials(crew.namaCrew)}
+        </AvatarFallback>
+      </Avatar>
+
+      {/* Name */}
+      <div className="text-center relative z-10">
+        <p className="font-bold text-sm truncate max-w-[120px]">{crew.namaCrew}</p>
+        {crew.groupName && (
+          <Badge variant="secondary" className={`text-[9px] py-0 px-1.5 mt-1 ${badgeBg}`}>
+            {crew.groupName}
+          </Badge>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="text-center relative z-10 space-y-1">
+        <p className="text-lg font-bold tracking-tight">
+          {formatCurrency(crew.totalSettle)}
+        </p>
+        <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
+          <span>{crew.totalQty} qty</span>
+          <span>·</span>
+          <span>BS {crew.basketSize.toFixed(1)}</span>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Component ────────────────────────────────────────────
 
 export function ScoringView() {
-  const [date, setDate] = useState(getTodayString())
+  const [date, setDate] = useState(getTodayGMT7)
   const [data, setData] = useState<ScoringCrew[]>([])
   const [summary, setSummary] = useState<ScoringSummary>({
     totalSettle: 0,
@@ -166,6 +270,11 @@ export function ScoringView() {
     },
     [sortField]
   )
+
+  // Top 3 crew for today
+  const topCrew = useMemo(() => {
+    return sortedData.slice(0, 3)
+  }, [sortedData])
 
   // ─── Summary Cards Config ──────────────────────────
 
@@ -262,6 +371,26 @@ export function ScoringView() {
         ))}
       </div>
 
+      {/* Top Crew Penjualan Hari Ini */}
+      {!loading && topCrew.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="size-5 text-emerald-400" />
+            <h3 className="text-lg font-semibold">Top Crew Penjualan Hari Ini</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {topCrew.map((crew) => {
+                const rank = (sortedData.indexOf(crew) + 1) as 1 | 2 | 3
+                return (
+                  <TopCrewPodium key={crew.crewId} crew={crew} rank={rank} />
+                )
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -351,16 +480,17 @@ export function ScoringView() {
               <TableBody>
                 {sortedData.map((crew, index) => {
                   const rank = index + 1
+                  const hasSales = crew.totalSettle > 0
                   return (
                     <TableRow
                       key={crew.crewId}
-                      className={`hover:bg-white/5 ${rank <= 3 ? 'bg-emerald-500/[0.02]' : ''}`}
+                      className={`hover:bg-white/5 ${rank <= 3 && hasSales ? 'bg-emerald-500/[0.02]' : ''} ${!hasSales ? 'opacity-50' : ''}`}
                     >
                       <TableCell className="text-center">
                         <div
-                          className={`inline-flex items-center justify-center size-7 rounded-full border ${getRankBg(rank)}`}
+                          className={`inline-flex items-center justify-center size-7 rounded-full border ${hasSales ? getRankBg(rank) : 'bg-white/5 border-border/30'}`}
                         >
-                          {rank <= 3 ? (
+                          {rank <= 3 && hasSales ? (
                             <Trophy
                               className={`size-3.5 ${getRankStyle(rank)}`}
                             />
@@ -387,6 +517,9 @@ export function ScoringView() {
                           <div className="flex flex-col min-w-0">
                             <span className="text-sm font-medium truncate">
                               {crew.namaCrew}
+                              {!hasSales && (
+                                <span className="text-muted-foreground text-[10px] ml-1.5">(no sales)</span>
+                              )}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[11px] text-muted-foreground">
@@ -430,9 +563,12 @@ export function ScoringView() {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Users className="size-3" />
-            {summary.crewCount} crew aktif
+            {summary.crewCount} crew terdaftar
+            {summary.activeCrewCount !== undefined && summary.activeCrewCount < summary.crewCount && (
+              <span className="text-emerald-400">({summary.activeCrewCount} aktif)</span>
+            )}
           </span>
-          <span>Data untuk {date}</span>
+          <span>Data untuk {date} (GMT+7)</span>
         </div>
       )}
     </div>

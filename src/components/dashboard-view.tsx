@@ -20,6 +20,9 @@ import {
   CheckSquare,
   Square,
   UserPlus,
+  Calendar,
+  ClipboardList,
+  ClipboardCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -68,6 +71,8 @@ interface SalesResponse {
   page: number
   limit: number
   totalPages: number
+  aggregateSettle: number
+  aggregateQty: number
 }
 
 interface ImportBatch {
@@ -83,6 +88,8 @@ interface Stats {
   totalCrew: number
   totalGroups: number
 }
+
+type TabType = 'unclaim' | 'claim'
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -104,6 +111,33 @@ const formatDate = (dateStr: string) => {
   const year = date.getFullYear()
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+}
+
+/**
+ * Get today's date string in GMT+7 (WIB)
+ */
+const getTodayGMT7 = () => {
+  const now = new Date()
+  const gmt7 = new Date(now.getTime() + 7 * 60 * 60 * 1000 + now.getTimezoneOffset() * 60 * 1000)
+  const year = gmt7.getFullYear()
+  const month = String(gmt7.getMonth() + 1).padStart(2, '0')
+  const day = String(gmt7.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Format date string for display (GMT+7)
+ */
+const formatDateGMT7 = (dateStr: string) => {
+  const date = new Date(dateStr)
+  // Convert to GMT+7
+  const gmt7 = new Date(date.getTime() + 7 * 60 * 60 * 1000)
+  const day = String(gmt7.getUTCDate()).padStart(2, '0')
+  const month = String(gmt7.getUTCMonth() + 1).padStart(2, '0')
+  const year = gmt7.getUTCFullYear()
+  const hours = String(gmt7.getUTCHours()).padStart(2, '0')
+  const minutes = String(gmt7.getUTCMinutes()).padStart(2, '0')
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
@@ -225,6 +259,10 @@ function CrewSearchBox({
 // ─── Component ────────────────────────────────────────────
 
 export function DashboardView() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('unclaim')
+  const [date, setDate] = useState(getTodayGMT7)
+
   // Sales state
   const [salesData, setSalesData] = useState<SalesRecord[]>([])
   const [crews, setCrews] = useState<Crew[]>([])
@@ -270,6 +308,8 @@ export function DashboardView() {
         page: String(page),
         limit: String(limit),
         search,
+        tab: activeTab,
+        date,
       })
       const res = await fetch(`/api/sales?${params}`)
       if (!res.ok) throw new Error('Gagal memuat data penjualan')
@@ -277,12 +317,17 @@ export function DashboardView() {
       setSalesData(data.data)
       setTotalPages(data.totalPages)
       setTotal(data.total)
+      setStats((s) => ({
+        ...s,
+        totalSales: data.total,
+        totalSettle: data.aggregateSettle,
+      }))
     } catch {
       toast.error('Gagal memuat data penjualan')
     } finally {
       setLoading(false)
     }
-  }, [page, search])
+  }, [page, search, activeTab, date])
 
   const fetchCrews = useCallback(async () => {
     try {
@@ -334,24 +379,12 @@ export function DashboardView() {
     fetchBatches()
   }, [fetchCrews, fetchGroups, fetchBatches])
 
-  // Compute total stats from sales response
-  useEffect(() => {
-    if (!loading && total > 0) {
-      setStats((s) => ({ ...s, totalSales: total }))
-    }
-  }, [loading, total])
-
+  // Page-level totals (for table footer)
   const pageTotals = useMemo(() => {
     const totalQty = salesData.reduce((sum, s) => sum + s.qty, 0)
     const totalSettle = salesData.reduce((sum, s) => sum + s.settle, 0)
     return { totalQty, totalSettle }
   }, [salesData])
-
-  useEffect(() => {
-    if (pageTotals.totalSettle > 0) {
-      setStats((s) => ({ ...s, totalSettle: pageTotals.totalSettle }))
-    }
-  }, [pageTotals.totalSettle])
 
   // Close batch assign dropdown on outside click
   useEffect(() => {
@@ -367,10 +400,22 @@ export function DashboardView() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Reset selection when tab changes
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setPage(1)
+  }, [activeTab])
+
   // ─── Handlers ───────────────────────────────────────
 
   const handleSearch = useCallback((value: string) => {
     setSearch(value)
+    setPage(1)
+    setSelectedIds(new Set())
+  }, [])
+
+  const handleDateChange = useCallback((value: string) => {
+    setDate(value)
     setPage(1)
     setSelectedIds(new Set())
   }, [])
@@ -533,8 +578,11 @@ export function DashboardView() {
         throw new Error(data.error || 'Gagal mengimport file')
       }
       const result = await res.json()
+      const dupInfo = result.skippedDuplicates > 0
+        ? ` (${result.skippedDuplicates} data duplikat dilewati)`
+        : ''
       toast.success(
-        `Berhasil mengimport ${result.totalRecords ?? result.count ?? 0} data penjualan`
+        `Berhasil mengimport ${result.totalRecords ?? result.count ?? 0} data penjualan${dupInfo}`
       )
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -567,6 +615,13 @@ export function DashboardView() {
       ),
     [crews, batchSearchQuery]
   )
+
+  // ─── Tab Config ──────────────────────────────────────
+
+  const tabs: { id: TabType; label: string; icon: typeof ClipboardList; count: number }[] = [
+    { id: 'unclaim', label: 'Unclaim', icon: ClipboardList, count: activeTab === 'unclaim' ? total : 0 },
+    { id: 'claim', label: 'Claimed', icon: ClipboardCheck, count: activeTab === 'claim' ? total : 0 },
+  ]
 
   // ─── Stat Cards Config ──────────────────────────────
 
@@ -642,8 +697,8 @@ export function DashboardView() {
         ))}
       </div>
 
-      {/* Quick Import Section */}
-      <div className="flex items-center justify-between">
+      {/* Header: Title + Import Button */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-semibold">Data Penjualan</h2>
         <Button
           variant="outline"
@@ -802,22 +857,63 @@ export function DashboardView() {
         )}
       </AnimatePresence>
 
-      {/* Sales Data Table */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari Kode Extend..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-9 bg-card/80 border-border/50"
-          />
+      {/* Tabs + Date Filter + Search */}
+      <div className="flex flex-col gap-3">
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 rounded-lg bg-card/80 border border-border/50 p-1 w-fit">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all
+                ${activeTab === tab.id
+                  ? 'bg-emerald-500/10 text-emerald-400 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                }
+              `}
+            >
+              <tab.icon className="size-4" />
+              {tab.label}
+              {activeTab === tab.id && total > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                >
+                  {total}
+                </Badge>
+              )}
+            </button>
+          ))}
         </div>
-        <Badge variant="outline" className="shrink-0 border-border/50">
-          {total} data
-        </Badge>
+
+        {/* Filters row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex items-center gap-2">
+            <Calendar className="size-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="w-auto bg-white/5 border-border/50 text-sm h-9"
+            />
+          </div>
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Cari Kode Extend..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-9 bg-card/80 border-border/50"
+            />
+          </div>
+          <Badge variant="outline" className="shrink-0 border-border/50">
+            {total} data
+          </Badge>
+        </div>
       </div>
 
+      {/* Sales Data Table */}
       {loading && (
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
           <Table>
@@ -866,11 +962,21 @@ export function DashboardView() {
           className="flex flex-col items-center justify-center py-16 text-center"
         >
           <div className="rounded-full bg-white/5 p-4 mb-4">
-            <FileSpreadsheet className="size-8 text-muted-foreground" />
+            {activeTab === 'unclaim' ? (
+              <ClipboardList className="size-8 text-muted-foreground" />
+            ) : (
+              <ClipboardCheck className="size-8 text-muted-foreground" />
+            )}
           </div>
-          <h3 className="text-lg font-medium">Belum ada data penjualan</h3>
+          <h3 className="text-lg font-medium">
+            {activeTab === 'unclaim'
+              ? 'Tidak ada data unclaim'
+              : 'Tidak ada data yang sudah di-claim'}
+          </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Import data Excel melalui tombol &ldquo;Import Data&rdquo; di atas
+            {activeTab === 'unclaim'
+              ? 'Semua penjualan sudah di-claim atau belum ada data'
+              : 'Belum ada penjualan yang di-claim oleh crew'}
           </p>
         </motion.div>
       )}
@@ -885,19 +991,21 @@ export function DashboardView() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-10">
-                    <button
-                      onClick={toggleSelectAll}
-                      className="p-0.5 hover:opacity-80 transition-opacity"
-                    >
-                      {selectedIds.size === salesData.length &&
-                      salesData.length > 0 ? (
-                        <CheckSquare className="size-4 text-emerald-400" />
-                      ) : (
-                        <Square className="size-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </TableHead>
+                  {activeTab === 'unclaim' && (
+                    <TableHead className="w-10">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="p-0.5 hover:opacity-80 transition-opacity"
+                      >
+                        {selectedIds.size === salesData.length &&
+                        salesData.length > 0 ? (
+                          <CheckSquare className="size-4 text-emerald-400" />
+                        ) : (
+                          <Square className="size-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </TableHead>
+                  )}
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Kode Extend</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
@@ -911,22 +1019,24 @@ export function DashboardView() {
                   return (
                     <TableRow
                       key={record.id}
-                      className={`hover:bg-white/5 ${isSelected ? 'bg-emerald-500/5' : ''}`}
+                      className={`hover:bg-white/5 ${isSelected ? 'bg-emerald-500/5' : ''} ${record.crewId ? 'opacity-80' : ''}`}
                     >
-                      <TableCell>
-                        <button
-                          onClick={() => toggleSelect(record.id)}
-                          className="p-0.5 hover:opacity-80 transition-opacity"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="size-4 text-emerald-400" />
-                          ) : (
-                            <Square className="size-4 text-muted-foreground" />
-                          )}
-                        </button>
-                      </TableCell>
+                      {activeTab === 'unclaim' && (
+                        <TableCell>
+                          <button
+                            onClick={() => toggleSelect(record.id)}
+                            className="p-0.5 hover:opacity-80 transition-opacity"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="size-4 text-emerald-400" />
+                            ) : (
+                              <Square className="size-4 text-muted-foreground" />
+                            )}
+                          </button>
+                        </TableCell>
+                      )}
                       <TableCell className="text-sm">
-                        {formatDate(record.tanggal)}
+                        {formatDateGMT7(record.tanggal)}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -943,15 +1053,29 @@ export function DashboardView() {
                         {formatCurrency(record.settle)}
                       </TableCell>
                       <TableCell>
-                        <CrewSearchBox
-                          crew={record.crew}
-                          crews={crews}
-                          assigningId={assigningId}
-                          onAssign={(crewId) =>
-                            handleAssignCrew(record.id, crewId)
-                          }
-                          onUnassign={() => handleUnassignCrew(record.id)}
-                        />
+                        {activeTab === 'unclaim' ? (
+                          <CrewSearchBox
+                            crew={record.crew}
+                            crews={crews}
+                            assigningId={assigningId}
+                            onAssign={(crewId) =>
+                              handleAssignCrew(record.id, crewId)
+                            }
+                            onUnassign={() => handleUnassignCrew(record.id)}
+                          />
+                        ) : (
+                          // Claim tab: show crew name (already assigned)
+                          record.crew ? (
+                            <div className="flex items-center gap-1.5 rounded-md px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 w-[160px]">
+                              <UserCheck className="size-3.5 text-emerald-400 shrink-0" />
+                              <span className="truncate flex-1 text-emerald-300 text-xs">
+                                {record.crew.namaCrew}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )
+                        )}
                       </TableCell>
                     </TableRow>
                   )
@@ -959,7 +1083,7 @@ export function DashboardView() {
               </TableBody>
               <TableFooter>
                 <TableRow className="font-semibold hover:bg-transparent">
-                  <TableCell />
+                  {activeTab === 'unclaim' && <TableCell />}
                   <TableCell colSpan={2}>Total (halaman ini)</TableCell>
                   <TableCell className="text-right">
                     {pageTotals.totalQty.toLocaleString('id-ID')}
@@ -1007,9 +1131,9 @@ export function DashboardView() {
         </motion.div>
       )}
 
-      {/* Floating Batch Action Bar */}
+      {/* Floating Batch Action Bar — only for Unclaim tab */}
       <AnimatePresence>
-        {selectedIds.size > 0 && (
+        {activeTab === 'unclaim' && selectedIds.size > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
