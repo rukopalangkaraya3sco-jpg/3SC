@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// ──────────────────────────────────────────────────────────
+// DEPLOYMENT NOTE (Vercel + Neon):
+// ──────────────────────────────────────────────────────────
+// For LOCAL DEVELOPMENT with SQLite: keep provider = "sqlite"
+// For VERCEL+NEON DEPLOYMENT: change provider to "postgresql"
+//   Then set DATABASE_URL to your Neon connection string:
+//   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require
+//   Then run: bun run db:migrate:deploy
+// ──────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Crew {
+  id          String      @id @default(cuid())
+  namaCrew    String
+  fotoUrl     String
+  idKaryawan  String      @unique
+  pin         String      @default("0000")
+  groupId     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  salesData   SalesData[]
+  group       Group?      @relation(fields: [groupId], references: [id])
+}
+
+model Group {
+  id              String   @id @default(cuid())
+  namaGrup        String
+  logoUrl         String
+  targetBulanan   Float    @default(0)
+  week1Percentage Float    @default(25)
+  week2Percentage Float    @default(25)
+  week3Percentage Float    @default(25)
+  week4Percentage Float    @default(25)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  crews           Crew[]
+}
+
+model SalesData {
+  id               String   @id @default(cuid())
+  tanggal          DateTime
+  idPenjualan      String
+  statusRetention  String?
+  retentionCode    String?
+  pembayaran       String?
+  program          String?
+  channelStock     String?
+  kodeExtend       String
+  brand            String?
+  dept             String?
+  modul            String?
+  ukuran           String?
+  qty              Int
+  hjp              Float?
+  netto            Float?
+  diskon           Float?
+  diskonRp         Float?
+  potongan         Float?
+  potonganV        Float?
+  settle           Float
+  crewId           String?
+  importBatchId    String
+  crew             Crew?      @relation(fields: [crewId], references: [id])
+  importBatch      ImportBatch @relation(fields: [importBatchId], references: [id])
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+model ImportBatch {
+  id           String      @id @default(cuid())
+  fileName     String
+  totalRecords Int
+  importDate   DateTime
+  createdAt    DateTime    @default(now())
+  salesData    SalesData[]
+}
