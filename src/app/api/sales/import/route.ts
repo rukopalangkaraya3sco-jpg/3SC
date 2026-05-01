@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import * as XLSX from 'xlsx'
-import * as fs from 'fs'
-import * as path from 'path'
 import { randomUUID } from 'crypto'
+import { mkdirSync, writeFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
-const UPLOAD_DIR = '/home/z/my-project/upload'
+// Use /tmp for Vercel serverless (read-only filesystem except /tmp)
+// Use local upload dir for development
+function getUploadDir(): string {
+  if (process.env.VERCEL) {
+    return '/tmp/claim-penjualan-uploads'
+  }
+  return join(process.cwd(), 'upload')
+}
 
 function toNullIfEmpty(val: unknown): string | null {
   if (val === undefined || val === null || val === '') return null
@@ -43,10 +50,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Save uploaded file with unique name
+    const uploadDir = getUploadDir()
+    if (!existsSync(uploadDir)) {
+      mkdirSync(uploadDir, { recursive: true })
+    }
+
     const fileBuffer = Buffer.from(await file.arrayBuffer())
     const uniqueFileName = `${randomUUID()}-${file.name}`
-    const filePath = path.join(UPLOAD_DIR, uniqueFileName)
-    fs.writeFileSync(filePath, fileBuffer)
+    const filePath = join(uploadDir, uniqueFileName)
+    writeFileSync(filePath, fileBuffer)
 
     // Read Excel file
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' })

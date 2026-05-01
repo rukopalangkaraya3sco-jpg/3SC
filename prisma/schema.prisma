@@ -1,22 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// ──────────────────────────────────────────────────────────
-// DEPLOYMENT NOTE (Vercel + Neon):
-// ──────────────────────────────────────────────────────────
-// For LOCAL DEVELOPMENT with SQLite: keep provider = "sqlite"
-// For VERCEL+NEON DEPLOYMENT: change provider to "postgresql"
-//   Then set DATABASE_URL to your Neon connection string:
-//   DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require
-//   Then run: bun run db:migrate:deploy
-// ──────────────────────────────────────────────────────────
+// SQLite version — used for LOCAL DEVELOPMENT
+// This is the DEFAULT schema (Prisma reads schema.prisma)
+// For Vercel+Neon: the build script auto-switches to schema.neon.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

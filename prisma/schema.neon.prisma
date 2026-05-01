@@ -1,11 +1,6 @@
-// This is the Neon PostgreSQL version of the Prisma schema.
-// Copy this file to schema.prisma when deploying to Vercel + Neon.
-//
-// Steps to deploy:
-// 1. Copy this file: cp prisma/schema.neon.prisma prisma/schema.prisma
-// 2. Set DATABASE_URL in Vercel environment variables to your Neon connection string
-// 3. Run: bun run db:migrate:deploy (or let Vercel build do it via postinstall)
-// 4. Deploy: vercel deploy
+// PostgreSQL (Neon) version — used for VERCEL DEPLOYMENT
+// The build script auto-switches to this when VERCEL env var is detected
+// DO NOT rename this file — build.js looks for "schema.neon.prisma"
 
 generator client {
   provider = "prisma-client-js"
