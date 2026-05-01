@@ -71,8 +71,6 @@ interface SalesResponse {
   page: number
   limit: number
   totalPages: number
-  aggregateSettle: number
-  aggregateQty: number
 }
 
 interface ImportBatch {
@@ -80,6 +78,14 @@ interface ImportBatch {
   fileName: string
   totalRecords: number
   importDate: string
+}
+
+interface TabStats {
+  unclaimCount: number
+  claimCount: number
+  totalCount: number
+  totalSettle: number
+  totalQty: number
 }
 
 interface Stats {
@@ -273,7 +279,16 @@ export function DashboardView() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [assigningId, setAssigningId] = useState<string | null>(null)
-  const limit = 40
+  const limit = 50
+
+  // Tab stats (counts for both tabs)
+  const [tabStats, setTabStats] = useState<TabStats>({
+    unclaimCount: 0,
+    claimCount: 0,
+    totalCount: 0,
+    totalSettle: 0,
+    totalQty: 0,
+  })
 
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -317,17 +332,29 @@ export function DashboardView() {
       setSalesData(data.data)
       setTotalPages(data.totalPages)
       setTotal(data.total)
-      setStats((s) => ({
-        ...s,
-        totalSales: data.total,
-        totalSettle: data.aggregateSettle,
-      }))
     } catch {
       toast.error('Gagal memuat data penjualan')
     } finally {
       setLoading(false)
     }
   }, [page, search, activeTab, date])
+
+  const fetchTabStats = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ date })
+      const res = await fetch(`/api/sales/stats?${params}`)
+      if (!res.ok) return
+      const data: TabStats = await res.json()
+      setTabStats(data)
+      setStats((s) => ({
+        ...s,
+        totalSales: data.totalCount,
+        totalSettle: data.totalSettle,
+      }))
+    } catch {
+      /* silent */
+    }
+  }, [date])
 
   const fetchCrews = useCallback(async () => {
     try {
@@ -372,6 +399,10 @@ export function DashboardView() {
   useEffect(() => {
     fetchSales()
   }, [fetchSales])
+
+  useEffect(() => {
+    fetchTabStats()
+  }, [fetchTabStats])
 
   useEffect(() => {
     fetchCrews()
@@ -436,6 +467,7 @@ export function DashboardView() {
         const crew = crews.find((c) => c.id === crewId)
         toast.success(`Crew "${crew?.namaCrew}" berhasil ditugaskan`)
         fetchSales()
+        fetchTabStats()
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : 'Gagal menugaskan crew'
@@ -459,6 +491,7 @@ export function DashboardView() {
         if (!res.ok) throw new Error('Gagal melepas crew')
         toast.success('Crew berhasil dilepas')
         fetchSales()
+        fetchTabStats()
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : 'Gagal melepas crew'
@@ -518,6 +551,7 @@ export function DashboardView() {
         setSelectedIds(new Set())
         setBatchAssignOpen(false)
         fetchSales()
+        fetchTabStats()
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : 'Gagal menugaskan crew'
@@ -588,6 +622,7 @@ export function DashboardView() {
       if (fileInputRef.current) fileInputRef.current.value = ''
       fetchBatches()
       fetchSales()
+      fetchTabStats()
       fetchCrews()
       fetchGroups()
     } catch (err) {
@@ -619,8 +654,8 @@ export function DashboardView() {
   // ─── Tab Config ──────────────────────────────────────
 
   const tabs: { id: TabType; label: string; icon: typeof ClipboardList; count: number }[] = [
-    { id: 'unclaim', label: 'Unclaim', icon: ClipboardList, count: activeTab === 'unclaim' ? total : 0 },
-    { id: 'claim', label: 'Claimed', icon: ClipboardCheck, count: activeTab === 'claim' ? total : 0 },
+    { id: 'unclaim', label: 'Unclaim', icon: ClipboardList, count: tabStats.unclaimCount },
+    { id: 'claim', label: 'Claimed', icon: ClipboardCheck, count: tabStats.claimCount },
   ]
 
   // ─── Stat Cards Config ──────────────────────────────
@@ -875,12 +910,12 @@ export function DashboardView() {
             >
               <tab.icon className="size-4" />
               {tab.label}
-              {activeTab === tab.id && total > 0 && (
+              {tab.count > 0 && (
                 <Badge
                   variant="secondary"
                   className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                 >
-                  {total}
+                  {tab.count}
                 </Badge>
               )}
             </button>

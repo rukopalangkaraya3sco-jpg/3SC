@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const tab = searchParams.get('tab') || '' // 'unclaim' | 'claim' | ''
     const dateStr = searchParams.get('date') || '' // YYYY-MM-DD in GMT+7
     const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const limit = parseInt(searchParams.get('limit') || '50', 10)
 
     // Build where clause
     const where: Prisma.SalesDataWhereInput = {}
