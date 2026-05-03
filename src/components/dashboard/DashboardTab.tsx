@@ -506,124 +506,127 @@ const DashboardTab = React.memo(function DashboardTab({
             </Card>
           </motion.div>
 
-          {/* Sales Chart */}
-          <motion.div {...fadeIn} transition={{ delay: 0.5 }}>
-            <Card className="border-0 shadow-lg overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-emerald-500" />
-                  <CardTitle className="text-base">Penjualan per Crew</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboard.crewStats.length > 0 ? (
-                  <div className="h-56 sm:h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dashboard.crewStats.map(c => ({
-                        name: c.name.split(' ')[0],
-                        value: dashPeriod === 'today' ? c.todayTotal : dashPeriod === 'week' ? c.weekTotal : c.monthTotal,
-                        qty: dashPeriod === 'today' ? c.todayQty : dashPeriod === 'week' ? c.weekQty : c.monthQty,
-                      }))} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(0)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)} />
-                        <Tooltip formatter={(value: number) => fmtRp(value)} labelStyle={{ fontWeight: 600 }} contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.922 0 0)', fontSize: 12 }} />
-                        <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                          {dashboard.crewStats.map((_, idx) => (
-                            <Cell key={idx} fill={idx === 0 ? '#059669' : idx === 1 ? '#d97706' : idx === 2 ? '#8b5cf6' : idx === 3 ? '#0891b2' : '#6b7280'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+          {/* Charts + Recent Activity — 3 columns on desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Sales Chart */}
+            <motion.div {...fadeIn} transition={{ delay: 0.5 }}>
+              <Card className="border-0 shadow-lg overflow-hidden h-full">
+                <CardHeader className="pb-2 sm:pb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-emerald-500" />
+                    <CardTitle className="text-sm sm:text-base">Penjualan per Crew</CardTitle>
                   </div>
-                ) : (
-                  <p className="text-center py-8 text-muted-foreground text-sm">Belum ada data</p>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+                </CardHeader>
+                <CardContent>
+                  {dashboard.crewStats.length > 0 ? (
+                    <div className="h-48 sm:h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dashboard.crewStats.map(c => ({
+                          name: c.name.split(' ')[0],
+                          value: dashPeriod === 'today' ? c.todayTotal : dashPeriod === 'week' ? c.weekTotal : c.monthTotal,
+                          qty: dashPeriod === 'today' ? c.todayQty : dashPeriod === 'week' ? c.weekQty : c.monthQty,
+                        }))} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={40} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(0)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)} />
+                          <Tooltip formatter={(value: number) => fmtRp(value)} labelStyle={{ fontWeight: 600 }} contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.922 0 0)', fontSize: 12 }} />
+                          <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                            {dashboard.crewStats.map((_, idx) => (
+                              <Cell key={idx} fill={idx === 0 ? '#059669' : idx === 1 ? '#d97706' : idx === 2 ? '#8b5cf6' : idx === 3 ? '#0891b2' : '#6b7280'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground text-sm">Belum ada data</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          {/* Sales Trend Line Chart */}
-          <motion.div {...fadeIn} transition={{ delay: 0.55 }}>
-            <Card className="border-0 shadow-lg overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-500" />
-                  <CardTitle className="text-base">Tren Penjualan per Crew</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboard.crewStats.length > 0 ? (
-                  <div className="h-48 sm:h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dashboard.topCrews.slice(0, 6).map(c => ({
-                        name: c.name.split(' ')[0],
-                        today: c.todayTotal,
-                        week: c.weekTotal,
-                        month: c.monthTotal,
-                      }))} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(0)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)} />
-                        <Tooltip formatter={(value: number) => fmtRp(value)} labelStyle={{ fontWeight: 600 }} contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.922 0 0)', fontSize: 12 }} />
-                        <Line type="monotone" dataKey="today" stroke="#059669" strokeWidth={2.5} dot={{ r: 4, fill: '#059669' }} activeDot={{ r: 6 }} name="Hari Ini" />
-                        <Line type="monotone" dataKey="week" stroke="#d97706" strokeWidth={2} dot={{ r: 3, fill: '#d97706' }} name="Minggu Ini" strokeDasharray="5 5" />
-                        <Line type="monotone" dataKey="month" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name="Bulan Ini" strokeDasharray="2 4" />
-                      </LineChart>
-                    </ResponsiveContainer>
+            {/* Sales Trend Line Chart */}
+            <motion.div {...fadeIn} transition={{ delay: 0.55 }}>
+              <Card className="border-0 shadow-lg overflow-hidden h-full">
+                <CardHeader className="pb-2 sm:pb-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    <CardTitle className="text-sm sm:text-base">Tren Penjualan per Crew</CardTitle>
                   </div>
-                ) : (
-                  <p className="text-center py-8 text-muted-foreground text-sm">Belum ada data</p>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+                </CardHeader>
+                <CardContent>
+                  {dashboard.crewStats.length > 0 ? (
+                    <div className="h-48 sm:h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dashboard.topCrews.slice(0, 6).map(c => ({
+                          name: c.name.split(' ')[0],
+                          today: c.todayTotal,
+                          week: c.weekTotal,
+                          month: c.monthTotal,
+                        }))} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(0)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)} />
+                          <Tooltip formatter={(value: number) => fmtRp(value)} labelStyle={{ fontWeight: 600 }} contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.922 0 0)', fontSize: 12 }} />
+                          <Line type="monotone" dataKey="today" stroke="#059669" strokeWidth={2.5} dot={{ r: 4, fill: '#059669' }} activeDot={{ r: 6 }} name="Hari Ini" />
+                          <Line type="monotone" dataKey="week" stroke="#d97706" strokeWidth={2} dot={{ r: 3, fill: '#d97706' }} name="Minggu Ini" strokeDasharray="5 5" />
+                          <Line type="monotone" dataKey="month" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name="Bulan Ini" strokeDasharray="2 4" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground text-sm">Belum ada data</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          {/* Recent Activity */}
-          <motion.div {...fadeIn} transition={{ delay: 0.6 }}>
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-emerald-500" />
-                  <CardTitle className="text-base bg-gradient-to-r from-emerald-600 to-cyan-600 dark:from-emerald-400 dark:to-cyan-400 bg-clip-text text-transparent">Aktivitas Terbaru</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {dashboard.recentSales.length === 0 ? (
-                  <div className="text-center py-8">
-                    <motion.div
-                      animate={{ y: [0, -6, 0] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                      className="inline-block"
-                    >
-                      <Clock className="w-10 h-10 mx-auto mb-2 text-muted-foreground/20" />
-                    </motion.div>
-                    <p className="text-sm text-muted-foreground">Belum ada aktivitas terbaru</p>
+            {/* Recent Activity */}
+            <motion.div {...fadeIn} transition={{ delay: 0.6 }}>
+              <Card className="border-0 shadow-lg h-full flex flex-col">
+                <CardHeader className="pb-2 sm:pb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-emerald-500" />
+                    <CardTitle className="text-sm sm:text-base bg-gradient-to-r from-emerald-600 to-cyan-600 dark:from-emerald-400 dark:to-cyan-400 bg-clip-text text-transparent">Aktivitas Terbaru</CardTitle>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {dashboard.recentSales.map((sale, i) => (
-                      <motion.div key={sale.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                        className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                        <Avatar className="w-8 h-8">
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col min-h-0">
+                  {dashboard.recentSales.length === 0 ? (
+                    <div className="text-center py-8">
+                      <motion.div
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        className="inline-block"
+                      >
+                        <Clock className="w-10 h-10 mx-auto mb-2 text-muted-foreground/20" />
+                      </motion.div>
+                      <p className="text-sm text-muted-foreground">Belum ada aktivitas terbaru</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 flex-1 overflow-y-auto max-h-[400px]">
+                      {dashboard.recentSales.map((sale, i) => (
+                        <motion.div key={sale.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <Avatar className="w-7 h-7 sm:w-8 sm:h-8 shrink-0">
                           <AvatarImage src={sale.crew?.photo || ''} />
-                          <AvatarFallback className="text-xs">{(sale.crew?.name || '?')[0]}</AvatarFallback>
+                          <AvatarFallback className="text-[10px] sm:text-xs">{(sale.crew?.name || '?')[0]}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{sale.crew?.name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{sale.kodeExtend} • {sale.tanggal}</p>
+                          <p className="text-xs sm:text-sm font-medium truncate">{sale.crew?.name || 'Unknown'}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{sale.kodeExtend} • {sale.tanggal}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtRp(sale.settle)}</p>
-                          <p className="text-xs text-muted-foreground">Qty: {sale.qty}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtRp(sale.settle)}</p>
+                          <p className="text-[10px] text-muted-foreground hidden sm:block">Qty: {sale.qty}</p>
                         </div>
                       </motion.div>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </motion.div>
       ) : null}
       </LoadingOverlay>
