@@ -66,48 +66,125 @@ const DashboardTab = React.memo(function DashboardTab({
           </motion.div>
         ) : dashboard ? (
         <motion.div {...stagger} className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              { label: 'Penjualan Hari Ini', value: dashboard.totals.today, qty: dashboard.totals.todayQty, icon: Zap, gradient: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20', trend: dashboard.trends?.today },
-              { label: 'Penjualan Minggu Ini', value: dashboard.totals.week, qty: dashboard.totals.weekQty, icon: TrendingUp, gradient: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20', trend: dashboard.trends?.week },
-              { label: 'Penjualan Bulan Ini', value: dashboard.totals.month, qty: dashboard.totals.monthQty, icon: BarChart3, gradient: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/20', trend: dashboard.trends?.month },
-              { label: 'Total Transaksi', value: dashboard.crewStats.reduce((s, c) => s + c.transactionCount, 0), qty: 0, icon: ShoppingCart, gradient: 'from-cyan-500 to-sky-600', shadow: 'shadow-cyan-500/20', trend: null },
-            ].map((card, i) => (
-              <motion.div key={i} {...fadeIn} transition={{ delay: i * 0.1 }} whileHover={{ y: -3, transition: { type: 'spring', stiffness: 300 } }}>
-                <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group cursor-default card-hover-glow">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-[0.03] group-hover:opacity-[0.07] transition-opacity duration-300`} />
-                  <CardContent className="p-4 sm:p-6 relative">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1.5 min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-medium text-muted-foreground">{card.label}</p>
-                          {card.trend && card.trend.changePercent != null && card.trend.direction !== 'same' && (
-                            <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                              card.trend.direction === 'up' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/50' : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-950/50'
-                            }`}>
-                              {card.trend.direction === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                              {Math.abs(card.trend.changePercent).toFixed(1)}%
-                            </motion.span>
-                          )}
-                        </div>
-                        <p className="text-lg sm:text-2xl font-bold tracking-tight">
-                          <AnimatedCounter value={card.value} prefix={i < 3 ? 'Rp' : ''} />
-                        </p>
-                        {card.qty > 0 && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Package className="w-3 h-3" />{fmtNum(card.qty)} items
-                          </p>
+          {/* Summary Cards — Total Import Summary */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            {/* Total Transaksi (Struk) */}
+            <motion.div {...fadeIn} transition={{ delay: 0.05 }} whileHover={{ y: -2, transition: { type: 'spring', stiffness: 300 } }}>
+              <Card className="relative overflow-hidden border-0 shadow-lg group cursor-default">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-sky-600 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" />
+                <CardContent className="p-3 sm:p-4 relative">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Total Struk</p>
+                      <p className="text-base sm:text-xl font-bold tracking-tight">
+                        <AnimatedCounter value={dashboard.totals.totalTransactions} />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{fmtNum(dashboard.totals.totalQty)} items • {fmtRp(dashboard.totals.totalSettle)}</p>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-600 shadow-lg shadow-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <ShoppingCart className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                  {/* Claimed vs Unclaimed bar */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: dashboard.totals.totalTransactions > 0 ? `${((dashboard.claimedCount || 0) / (dashboard.claimedCount + dashboard.unclaimedCount)) * 100}%` : '0%' }} />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">{dashboard.claimedCount || 0}/{dashboard.claimedCount + dashboard.unclaimedCount} claimed</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            {/* Penjualan Hari Ini */}
+            <motion.div {...fadeIn} transition={{ delay: 0.1 }} whileHover={{ y: -2, transition: { type: 'spring', stiffness: 300 } }}>
+              <Card className="relative overflow-hidden border-0 shadow-lg group cursor-default">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-600 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" />
+                <CardContent className="p-3 sm:p-4 relative">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Penjualan Hari Ini</p>
+                        {dashboard.trends?.today && dashboard.trends.today.changePercent != null && dashboard.trends.today.direction !== 'same' && (
+                          <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full ${
+                            dashboard.trends.today.direction === 'up' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/50' : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-950/50'
+                          }`}>
+                            {dashboard.trends.today.direction === 'up' ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                            {Math.abs(dashboard.trends.today.changePercent).toFixed(1)}%
+                          </motion.span>
                         )}
                       </div>
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${card.gradient} ${card.shadow} shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                        <card.icon className="w-5 h-5 text-white" />
-                      </div>
+                      <p className="text-base sm:text-xl font-bold tracking-tight">
+                        <AnimatedCounter value={dashboard.totals.today} prefix="Rp" />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{fmtNum(dashboard.totals.todayQty)} items</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Zap className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            {/* Penjualan Minggu Ini */}
+            <motion.div {...fadeIn} transition={{ delay: 0.15 }} whileHover={{ y: -2, transition: { type: 'spring', stiffness: 300 } }}>
+              <Card className="relative overflow-hidden border-0 shadow-lg group cursor-default">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" />
+                <CardContent className="p-3 sm:p-4 relative">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Penjualan Minggu Ini</p>
+                        {dashboard.trends?.week && dashboard.trends.week.changePercent != null && dashboard.trends.week.direction !== 'same' && (
+                          <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full ${
+                            dashboard.trends.week.direction === 'up' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/50' : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-950/50'
+                          }`}>
+                            {dashboard.trends.week.direction === 'up' ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                            {Math.abs(dashboard.trends.week.changePercent).toFixed(1)}%
+                          </motion.span>
+                        )}
+                      </div>
+                      <p className="text-base sm:text-xl font-bold tracking-tight">
+                        <AnimatedCounter value={dashboard.totals.week} prefix="Rp" />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{fmtNum(dashboard.totals.weekQty)} items</p>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <TrendingUp className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            {/* Penjualan Bulan Ini */}
+            <motion.div {...fadeIn} transition={{ delay: 0.2 }} whileHover={{ y: -2, transition: { type: 'spring', stiffness: 300 } }}>
+              <Card className="relative overflow-hidden border-0 shadow-lg group cursor-default">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-violet-600 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" />
+                <CardContent className="p-3 sm:p-4 relative">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">Penjualan Bulan Ini</p>
+                        {dashboard.trends?.month && dashboard.trends.month.changePercent != null && dashboard.trends.month.direction !== 'same' && (
+                          <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full ${
+                            dashboard.trends.month.direction === 'up' ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/50' : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-950/50'
+                          }`}>
+                            {dashboard.trends.month.direction === 'up' ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                            {Math.abs(dashboard.trends.month.changePercent).toFixed(1)}%
+                          </motion.span>
+                        )}
+                      </div>
+                      <p className="text-base sm:text-xl font-bold tracking-tight">
+                        <AnimatedCounter value={dashboard.totals.month} prefix="Rp" />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{fmtNum(dashboard.totals.monthQty)} items</p>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <BarChart3 className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
 
           {/* Top Crew Leaderboard */}
@@ -428,12 +505,12 @@ const DashboardTab = React.memo(function DashboardTab({
           {/* Group Achievement Cards */}
           <motion.div {...fadeIn} transition={{ delay: 0.4 }}>
             <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2 sm:pb-3">
                 <div className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-emerald-500" />
-                  <CardTitle className="text-base">Achievement Zoning / Group</CardTitle>
+                  <CardTitle className="text-sm sm:text-base">Achievement Zoning / Group</CardTitle>
                 </div>
-                <CardDescription>
+                <CardDescription className="text-[10px] sm:text-xs">
                   Minggu {dashboard.dateInfo.currentWeek} ({dashboard.dateInfo.weekStart}–{dashboard.dateInfo.weekEnd} {monthNames[dashboard.dateInfo.currentMonth]} {dashboard.dateInfo.currentYear})
                 </CardDescription>
               </CardHeader>
@@ -441,66 +518,110 @@ const DashboardTab = React.memo(function DashboardTab({
                 {dashboard.groupAchievements.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground text-sm">Belum ada group</p>
                 ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {dashboard.groupAchievements.map((g) => (
-                      <motion.div key={g.id} whileHover={{ y: -4, transition: { type: 'spring', stiffness: 300 } }} whileTap={{ scale: 0.98 }}>
-                        <Card
-                          className="border-0 shadow-md bg-gradient-to-br from-white to-gray-50/80 dark:from-gray-900 dark:to-gray-800/80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400/50 dark:hover:ring-emerald-600/40 transition-all duration-200"
-                          onClick={() => { setSelectedGroupDetail(g); setGroupDetailPeriod('daily') }}
-                        >
-                          <CardContent className="p-5">
-                            <div className="flex items-center gap-3 mb-4">
-                              <Avatar className="w-12 h-12 border-2 border-emerald-200 dark:border-emerald-800">
-                                <AvatarImage src={g.logo || ''} />
-                                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-sm">
-                                  {g.name.split(' ').slice(-1)[0][0]}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-bold text-sm">{g.name}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <Badge variant="outline" className="text-[10px]"><Users className="w-3 h-3 mr-1" />{g.crewCount} crew</Badge>
-                                  <AchievementBadge pct={g.monthlyAchievement} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Monthly Achievement */}
-                            <div className="flex items-center gap-4 mb-4">
-                              <CircularProgress value={g.monthlyAchievement} size={72} strokeWidth={6} />
-                              <div className="flex-1 space-y-2">
+                  <>
+                    {/* Mobile: Horizontal scroll */}
+                    <div className="md:hidden">
+                      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin">
+                        {dashboard.groupAchievements.map((g) => (
+                          <motion.div key={g.id} whileTap={{ scale: 0.98 }} className="snap-start shrink-0 w-[75vw]">
+                            <Card
+                              className="border-0 shadow-md bg-gradient-to-br from-white to-gray-50/80 dark:from-gray-900 dark:to-gray-800/80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400/50 dark:hover:ring-emerald-600/40 transition-all duration-200"
+                              onClick={() => { setSelectedGroupDetail(g); setGroupDetailPeriod('daily') }}
+                            >
+                              <CardContent className="p-3.5">
+                                {/* Compact horizontal layout */}
+                                <div className="flex items-center gap-2.5 mb-2.5">
+                                  <CircularProgress value={g.monthlyAchievement} size={48} strokeWidth={5} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <Avatar className="w-8 h-8 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                                        <AvatarImage src={g.logo || ''} />
+                                        <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-[10px]">{g.name.split(' ').slice(-1)[0][0]}</AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold truncate">{g.name}</p>
+                                        <p className="text-[9px] text-muted-foreground"><Users className="w-2.5 h-2.5 inline" />{g.crewCount} crew</p>
+                                      </div>
+                                      <AchievementBadge pct={g.monthlyAchievement} />
+                                    </div>
+                                    </div>
+                                    <div className="mt-1">
+                                      <p className="text-[10px] font-bold">{fmtRp(g.monthlyTotal)} <span className="text-muted-foreground font-normal">/ {fmtRp(g.monthlyTarget)}</span></p>
+                                    </div>
+                                    {/* Weekly mini progress */}
+                                    <div className="mt-1.5 space-y-0.5">
+                                      <div className="flex justify-between text-[9px]">
+                                        <span className="text-muted-foreground">W{g.currentWeek} ({g.weekTargetPct}%)</span>
+                                        <span className="font-semibold">{Math.round(g.weeklyAchievement)}%</span>
+                                      </div>
+                                      <Progress value={Math.min(g.weeklyAchievement, 100)} className="h-1.5" />
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Desktop: Grid layout */}
+                    <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {dashboard.groupAchievements.map((g) => (
+                        <motion.div key={g.id} whileHover={{ y: -4, transition: { type: 'spring', stiffness: 300 } }} whileTap={{ scale: 0.98 }}>
+                          <Card
+                            className="border-0 shadow-md bg-gradient-to-br from-white to-gray-50/80 dark:from-gray-900 dark:to-gray-800/80 overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400/50 dark:hover:ring-emerald-600/40 transition-all duration-200"
+                            onClick={() => { setSelectedGroupDetail(g); setGroupDetailPeriod('daily') }}
+                          >
+                            <CardContent className="p-5">
+                              <div className="flex items-center gap-3 mb-4">
+                                <Avatar className="w-12 h-12 border-2 border-emerald-200 dark:border-emerald-800">
+                                  <AvatarImage src={g.logo || ''} />
+                                  <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold text-sm">
+                                    {g.name.split(' ').slice(-1)[0][0]}
+                                  </AvatarFallback>
+                                </Avatar>
                                 <div>
-                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Bulanan</p>
-                                  <p className="text-sm font-bold">{fmtRp(g.monthlyTotal)}</p>
-                                  <p className="text-xs text-muted-foreground">Target: {fmtRp(g.monthlyTarget)}</p>
+                                  <p className="font-bold text-sm">{g.name}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <Badge variant="outline" className="text-[10px]"><Users className="w-3 h-3 mr-1" />{g.crewCount} crew</Badge>
+                                    <AchievementBadge pct={g.monthlyAchievement} />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-
-                            {/* Weekly Achievement */}
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between items-center">
-                                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                  Minggu {g.currentWeek} ({g.weekTargetPct}%)
-                                </p>
-                                <p className="text-xs font-semibold">{Math.round(g.weeklyAchievement)}%</p>
+                              {/* Monthly Achievement */}
+                              <div className="flex items-center gap-4 mb-4">
+                                <CircularProgress value={g.monthlyAchievement} size={72} strokeWidth={6} />
+                                <div className="flex-1 space-y-2">
+                                  <div>
+                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Bulanan</p>
+                                    <p className="text-sm font-bold">{fmtRp(g.monthlyTotal)}</p>
+                                    <p className="text-xs text-muted-foreground">Target: {fmtRp(g.monthlyTarget)}</p>
+                                  </div>
+                                </div>
                               </div>
-                              <Progress value={Math.min(g.weeklyAchievement, 100)} className="h-2" />
-                              <p className="text-xs text-muted-foreground">
-                                {fmtRp(g.weeklyTotal)} / {fmtRp(g.weeklyTarget)}
-                              </p>
-                            </div>
-
-                            {/* Click hint */}
-                            <div className="mt-3 pt-2 border-t border-border/30 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
-                              <Eye className="w-3 h-3" />
-                              <span>Lihat Detail Crew</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
+                              {/* Weekly Achievement */}
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                    Minggu {g.currentWeek} ({g.weekTargetPct}%)
+                                  </p>
+                                  <p className="text-xs font-semibold">{Math.round(g.weeklyAchievement)}%</p>
+                                </div>
+                                <Progress value={Math.min(g.weeklyAchievement, 100)} className="h-2" />
+                                <p className="text-xs text-muted-foreground">
+                                  {fmtRp(g.weeklyTotal)} / {fmtRp(g.weeklyTarget)}
+                                </p>
+                              </div>
+                              {/* Click hint */}
+                              <div className="mt-3 pt-2 border-t border-border/30 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+                                <Eye className="w-3 h-3" />
+                                <span>Lihat Detail Crew</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
