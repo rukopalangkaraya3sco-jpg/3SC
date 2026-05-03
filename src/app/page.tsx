@@ -160,10 +160,13 @@ export default function Home() {
   }, [dashPeriod])
 
   // Fetch crews for claim form — only when claims tab is active
-  const [crewsLoaded, setCrewsLoaded] = useState(false)
+  // NOTE: uses useRef (not useState) for loaded flag to avoid re-render
+  // cancelling the setTimeout via cleanup. useState triggers re-render →
+  // cleanup runs → clearTimeout → fetch never fires.
+  const crewsLoadedRef = useRef(false)
   useEffect(() => {
-    if (activeTab !== 'claims' || crewsLoaded) return
-    setCrewsLoaded(true)
+    if (activeTab !== 'claims' || crewsLoadedRef.current) return
+    crewsLoadedRef.current = true
     const t = setTimeout(async () => {
       try {
         const r = await safeFetch('/api/crews')
@@ -172,7 +175,7 @@ export default function Home() {
       } catch { /* silent */ }
     }, 100)
     return () => clearTimeout(t)
-  }, [activeTab, crewsLoaded])
+  }, [activeTab])
 
   // Fetch claim sales history — staggered 600ms after mount
   const fetchClaims = useCallback(async (page: number) => {
@@ -197,12 +200,12 @@ export default function Home() {
   }, [claimSearch, claimDateFrom, claimDateTo, claimFilterProgram, claimFilterCrew, claimShowClaimed])
 
   // Fetch claims only when claims tab is active (PERF: lazy load)
-  const [claimsInitialLoaded, setClaimsInitialLoaded] = useState(false)
+  const claimsInitialLoadedRef = useRef(false)
   useEffect(() => {
-    if (activeTab !== 'claims' || claimsInitialLoaded) return
-    setClaimsInitialLoaded(true)
+    if (activeTab !== 'claims' || claimsInitialLoadedRef.current) return
+    claimsInitialLoadedRef.current = true
     fetchClaims(1)
-  }, [activeTab, claimsInitialLoaded, fetchClaims])
+  }, [activeTab, fetchClaims])
 
   // Fetch programs for filter dropdown — staggered 500ms
   const fetchPrograms = useCallback(async () => {
@@ -214,12 +217,12 @@ export default function Home() {
   }, [])
 
   // Fetch programs only when claims tab is active (PERF: lazy load)
-  const [programsLoaded, setProgramsLoaded] = useState(false)
+  const programsLoadedRef = useRef(false)
   useEffect(() => {
-    if (activeTab !== 'claims' || programsLoaded) return
-    setProgramsLoaded(true)
+    if (activeTab !== 'claims' || programsLoadedRef.current) return
+    programsLoadedRef.current = true
     fetchPrograms()
-  }, [activeTab, programsLoaded, fetchPrograms])
+  }, [activeTab, fetchPrograms])
 
   // Fetch management data — only when admin tab is active
   const [mgmtInitialLoaded, setMgmtInitialLoaded] = useState(false)
