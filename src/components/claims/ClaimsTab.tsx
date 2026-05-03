@@ -520,18 +520,20 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent bg-gradient-to-r from-muted/80 to-muted/40">
-                          <TableHead className="text-[11px]">Tanggal</TableHead>
+                          <TableHead className="text-[11px] w-[40px]" />
+                          <TableHead className="text-[11px] w-[100px]">Tanggal</TableHead>
                           <TableHead className="text-[11px]">Dept</TableHead>
                           <TableHead className="text-[11px]">Kode Extend</TableHead>
+                          <TableHead className="text-[11px]">Brand</TableHead>
                           <TableHead className="text-[11px] text-right">Qty</TableHead>
                           <TableHead className="text-[11px] text-right">Settle</TableHead>
-                          <TableHead className="text-[11px]">Pembayaran</TableHead>
-                          <TableHead className="text-[11px]">Program</TableHead>
                           <TableHead className="text-[11px]">Crew</TableHead>
+                          <TableHead className="text-[11px]">Program</TableHead>
+                          <TableHead className="text-[11px] w-[80px]">Aksi</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)}
+                        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={10} />)}
                       </TableBody>
                     </Table>
                   </div>
@@ -613,13 +615,19 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-mono font-bold text-foreground tracking-tight truncate">{sale.kodeExtend}</p>
+                                <p className={`text-sm font-mono font-bold tracking-tight truncate ${isClaimed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{sale.kodeExtend}</p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                                   <Calendar className="w-2.5 h-2.5" />
                                   {sale.tanggal}
                                   <span className="text-muted-foreground/40 mx-0.5">·</span>
                                   <Package className="w-2.5 h-2.5" />
                                   {sale.qty} qty
+                                  {sale.brand && (
+                                    <>
+                                      <span className="text-muted-foreground/40 mx-0.5">·</span>
+                                      <span className="text-foreground/70 font-medium">{sale.brand.length > 15 ? sale.brand.slice(0, 15) + '…' : sale.brand}</span>
+                                    </>
+                                  )}
                                 </p>
                               </div>
                               {/* Status pill */}
@@ -750,20 +758,26 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                               })()}
                             </button>
                           </TableHead>
-                          <TableHead className="w-[100px] min-w-[100px] cursor-pointer select-none text-[11px]" onClick={() => { if (claimSortField === 'tanggal') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('tanggal'); setClaimSortDir('desc') } }}>
+                          <TableHead className="w-[100px] min-w-[100px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'tanggal') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('tanggal'); setClaimSortDir('desc') } }}>
                             <span className="inline-flex items-center gap-1">Tanggal{claimSortField === 'tanggal' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
                           </TableHead>
-                          <TableHead className="min-w-[80px] text-[11px]">Dept</TableHead>
-                          <TableHead className="min-w-[120px] text-[11px]">Kode Extend</TableHead>
-                          <TableHead className="text-right min-w-[60px] cursor-pointer select-none text-[11px]" onClick={() => { if (claimSortField === 'qty') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('qty'); setClaimSortDir('desc') } }}>
+                          <TableHead className="min-w-[80px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'dept') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('dept'); setClaimSortDir('desc') } }}>
+                            <span className="inline-flex items-center gap-1">Dept{claimSortField === 'dept' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
+                          </TableHead>
+                          <TableHead className="min-w-[120px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'kodeExtend') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('kodeExtend'); setClaimSortDir('desc') } }}>
+                            <span className="inline-flex items-center gap-1">Kode Extend{claimSortField === 'kodeExtend' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
+                          </TableHead>
+                          <TableHead className="min-w-[100px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'brand') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('brand'); setClaimSortDir('desc') } }}>
+                            <span className="inline-flex items-center gap-1">Brand{claimSortField === 'brand' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
+                          </TableHead>
+                          <TableHead className="text-right min-w-[60px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'qty') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('qty'); setClaimSortDir('desc') } }}>
                             <span className="inline-flex items-center justify-end gap-1">Qty{claimSortField === 'qty' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
                           </TableHead>
-                          <TableHead className="text-right min-w-[110px] cursor-pointer select-none text-[11px]" onClick={() => { if (claimSortField === 'settle') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('settle'); setClaimSortDir('desc') } }}>
+                          <TableHead className="text-right min-w-[110px] cursor-pointer select-none text-[11px] hover:text-foreground" onClick={() => { if (claimSortField === 'settle') setClaimSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setClaimSortField('settle'); setClaimSortDir('desc') } }}>
                             <span className="inline-flex items-center justify-end gap-1">Settle{claimSortField === 'settle' && (claimSortDir === 'asc' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />)}</span>
                           </TableHead>
-                          <TableHead className="min-w-[80px] text-[11px]">Pembayaran</TableHead>
-                          <TableHead className="min-w-[80px] text-[11px]">Program</TableHead>
                           <TableHead className="min-w-[160px] text-[11px]">Crew</TableHead>
+                          <TableHead className="min-w-[80px] text-[11px]">Program</TableHead>
                           {isAdmin && <TableHead className="w-[80px] text-[11px]">Aksi</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -771,7 +785,7 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                         {sortedClaimSales.map((sale) => (
                           <TableRow
                             key={sale.id}
-                            className={`sale-row ${selectedSaleIds.has(sale.id) ? 'row-selected' : ''} ${batchSelectedIds.has(sale.id) ? 'bg-red-50/50 dark:bg-red-950/10' : ''}`}
+                            className={`sale-row group ${selectedSaleIds.has(sale.id) ? 'row-selected' : ''} ${batchSelectedIds.has(sale.id) ? 'bg-red-50/50 dark:bg-red-950/10' : ''} ${sale.crew ? 'opacity-75' : ''}`}
                           >
                             {/* Checkbox — only for unclaimed */}
                             <TableCell>
@@ -804,43 +818,44 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                               ) : null}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{sale.tanggal}</TableCell>
+                            {/* Dept column */}
                             <TableCell className="text-xs">
-                              <div className="flex items-center gap-1.5">
-                                {sale.dept && <div className={`w-2 h-2 rounded-full ${getDeptColor(sale.dept)} shrink-0`} />}
-                                {sale.dept && <span className="tag-chip tag-chip-dept">{sale.dept}</span>}
-                                {!sale.dept && <span className="text-muted-foreground">-</span>}
+                              {sale.dept ? (
+                                <div className="flex items-center gap-1.5">
+                                  <div className={`w-2 h-2 rounded-full ${getDeptColor(sale.dept)} shrink-0`} />
+                                  <span className="text-foreground/80">{sale.dept}</span>
+                                </div>
+                              ) : <span className="text-muted-foreground">-</span>}
+                            </TableCell>
+                            {/* Kode Extend column */}
+                            <TableCell className="text-xs font-mono whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5">
+                                <span className={`font-semibold ${sale.crew ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{sale.kodeExtend}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs font-mono whitespace-nowrap font-semibold text-foreground">{sale.kodeExtend}</TableCell>
+                            {/* Brand column (NEW) */}
+                            <TableCell className="text-xs">
+                              {sale.brand ? (
+                                <span className="text-foreground/70">{sale.brand.length > 18 ? sale.brand.slice(0, 18) + '…' : sale.brand}</span>
+                              ) : <span className="text-muted-foreground">-</span>}
+                            </TableCell>
                             <TableCell className="text-xs text-right tabular-nums">{sale.qty}</TableCell>
                             <TableCell className="text-xs text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap tabular-nums">{fmtRp(sale.settle)}</TableCell>
-                            {/* Pembayaran column */}
-                            <TableCell>
-                              {sale.pembayaran ? (
-                                <span className="tag-chip tag-chip-payment">{sale.pembayaran}</span>
-                              ) : <span className="text-xs text-muted-foreground">-</span>}
-                            </TableCell>
-                            {/* Program column */}
-                            <TableCell>
-                              {sale.program ? (
-                                <span className="tag-chip tag-chip-program">{sale.program}</span>
-                              ) : <span className="text-xs text-muted-foreground">-</span>}
-                            </TableCell>
                             {/* Crew column */}
                             <TableCell>
                               {sale.crew ? (
                                 <div className="flex items-center gap-2">
                                   <div className="relative">
-                                    <Avatar className="w-7 h-7 ring-1 ring-emerald-200 dark:ring-emerald-800">
+                                    <Avatar className="w-6 h-6 ring-1 ring-emerald-200 dark:ring-emerald-800">
                                       <AvatarImage src={sale.crew?.photo || ''} />
-                                      <AvatarFallback className="text-[9px] bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-bold">{(sale.crew?.name || '?')[0]}</AvatarFallback>
+                                      <AvatarFallback className="text-[8px] bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-bold">{(sale.crew?.name || '?')[0]}</AvatarFallback>
                                     </Avatar>
                                     {sale.claimedAt && (Date.now() - new Date(sale.claimedAt).getTime() < 120000) && (
-                                      <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
+                                      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
                                     )}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                    <span className="text-xs truncate max-w-[120px] font-semibold text-foreground">{sale.crew?.name || 'Unknown'}</span>
+                                    <span className="text-[11px] truncate max-w-[120px] font-semibold text-foreground">{sale.crew?.name || 'Unknown'}</span>
                                     {sale.claimedAt && (
                                       <span className="text-[9px] text-muted-foreground">{timeAgo(sale.claimedAt)}</span>
                                     )}
@@ -848,7 +863,7 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                                   {isAdmin && (
                                     <button
                                       onClick={() => handleUnclaimSale(sale.id)}
-                                      className="ml-auto shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                                      className="ml-auto shrink-0 p-1 rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                                       title="Unclaim"
                                     >
                                       <X className="w-3 h-3" />
@@ -858,18 +873,24 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
                               ) : (
                                 <div className="flex items-center gap-1.5 text-muted-foreground/60">
                                   <Search className="w-3.5 h-3.5 shrink-0" />
-                                  <span className="text-xs italic">Belum di-claim</span>
+                                  <span className="text-[11px] italic">Belum di-claim</span>
                                 </div>
                               )}
+                            </TableCell>
+                            {/* Program column */}
+                            <TableCell>
+                              {sale.program ? (
+                                <span className="tag-chip tag-chip-program">{sale.program}</span>
+                              ) : <span className="text-xs text-muted-foreground">-</span>}
                             </TableCell>
                             {isAdmin && (
                               <TableCell>
                                 <div className="flex items-center gap-0.5">
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30" onClick={() => openEditSale(sale)}>
-                                    <Edit2 className="w-3.5 h-3.5" />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30" onClick={() => openEditSale(sale)}>
+                                    <Edit2 className="w-3 h-3" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => setDeleteConfirm({ type: 'sale', id: sale.id, name: `${sale.kodeExtend}${sale.crew ? ` — ${sale.crew.name}` : ' (unclaimed)'}` })}>
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => setDeleteConfirm({ type: 'sale', id: sale.id, name: `${sale.kodeExtend}${sale.crew ? ` — ${sale.crew.name}` : ' (unclaimed)'}` })}>
+                                    <Trash2 className="w-3 h-3" />
                                   </Button>
                                 </div>
                               </TableCell>

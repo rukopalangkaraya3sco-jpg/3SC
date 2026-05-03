@@ -37,6 +37,8 @@ export default function Home() {
   useEffect(() => { setMounted(true) }, [])
   // Crew detail panel state
   const [selectedCrewDetail, setSelectedCrewDetail] = useState<CrewStat | null>(null)
+  // Crew photo preview modal state
+  const [crewPhotoPreview, setCrewPhotoPreview] = useState<{ name: string; photo: string } | null>(null)
 
   // Group/Zoning detail modal state
   const [selectedGroupDetail, setSelectedGroupDetail] = useState<GroupAchievement | null>(null)
@@ -420,6 +422,9 @@ export default function Home() {
     if (claimSortField === 'tanggal') return dir * a.tanggal.localeCompare(b.tanggal)
     if (claimSortField === 'qty') return dir * (a.qty - b.qty)
     if (claimSortField === 'settle') return dir * (a.settle - b.settle)
+    if (claimSortField === 'kodeExtend') return dir * a.kodeExtend.localeCompare(b.kodeExtend)
+    if (claimSortField === 'dept') return dir * (a.dept || '').localeCompare(b.dept || '')
+    if (claimSortField === 'brand') return dir * (a.brand || '').localeCompare(b.brand || '')
     return dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   }), [claimSales, claimSortField, claimSortDir])
 
@@ -808,6 +813,8 @@ export default function Home() {
               groupDetailLoading={groupDetailLoading}
               fetchDashboard={fetchDashboard}
               setActiveTab={setActiveTab}
+              crewPhotoPreview={crewPhotoPreview}
+              setCrewPhotoPreview={setCrewPhotoPreview}
             />
 
             {/* ─── Claims Tab ───────────────────────────── */}
@@ -1060,7 +1067,7 @@ export default function Home() {
             className="fixed z-40 left-0 right-0 md:left-auto md:right-6 md:bottom-6 md:w-[440px]"
             style={{ bottom: 'max(60px, env(safe-area-inset-bottom, 60px))' }}
           >
-            <div className="mx-3 mb-1 md:mx-0 md:mb-0 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-emerald-200 dark:border-emerald-800 shadow-2xl shadow-emerald-500/10 overflow-hidden">
+            <div className="mx-3 mb-1 md:mx-0 md:mb-0 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl border border-emerald-200 dark:border-emerald-800 shadow-2xl shadow-emerald-500/10">
               {/* Top row: info + close */}
               <div className="flex items-center justify-between px-3 pt-3 pb-1">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1127,7 +1134,7 @@ export default function Home() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="relative">
+                  <div className="relative z-50">
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1150,7 +1157,7 @@ export default function Home() {
                     </div>
                     {/* Crew search dropdown */}
                     {!selectedClaimCrewId && claimCrewResults.length > 0 && (
-                      <div className="absolute bottom-full left-0 right-8 mb-1 rounded-xl border bg-white dark:bg-gray-900 shadow-xl z-50 max-h-52 overflow-y-auto">
+                      <div className="absolute bottom-full left-0 right-8 mb-1 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-900 shadow-xl max-h-52 overflow-y-auto">
                         {claimCrewResults.map(c => (
                           <button
                             key={c.id}

@@ -8,9 +8,16 @@ export interface CrewStat {
   monthTotal: number; monthQty: number; monthStruk: number
   allTimeTotal: number; allTimeQty: number; allTimeStruk: number
   transactionCount: number
-  // Target info derived from group
-  weeklyTarget: number; weeklyTargetPct: number; currentWeek: number
-  monthlyTarget: number; monthlyTargetPct: number; weeklyTargets: number[]
+  // Target info derived from group (monthlyTarget / crewCount)
+  crewMonthlyTarget: number
+  crewMonthlyAchievement: number // percentage
+  crewWeeklyTargets: number[] // [W1, W2, W3, W4] target amounts
+  crewCurrentWeekTarget: number // this week's target amount
+  crewWeeklyAchievement: number // percentage vs current week target
+  currentWeek: number
+  // Group raw targets for reference
+  groupMonthlyTarget: number
+  groupWeeklyTargetPcts: number[] // [W1%, W2%, W3%, W4%]
 }
 
 export interface GroupAchievement {
@@ -18,6 +25,10 @@ export interface GroupAchievement {
   monthlyTarget: number; monthlyTotal: number; monthlyAchievement: number
   weeklyTarget: number; weeklyTotal: number; weeklyAchievement: number
   weekTargetPct: number; currentWeek: number; crewCount: number
+  // Per-crew target breakdown
+  crewMonthlyTarget: number // monthlyTarget / crewCount
+  weeklyTargetPcts: number[] // [W1%, W2%, W3%, W4%]
+  crewWeeklyTargets: number[] // [W1, W2, W3, W4] per-crew amounts
 }
 
 export interface RecentSale {
@@ -58,6 +69,11 @@ export interface GroupDetailCrew {
   id: string; name: string; photo: string | null; employeeId: string
   totalQty: number; totalSettle: number; totalStruk: number
   basketSize: number; pricePoint: number; itemCount: number
+  // Target info
+  crewMonthlyTarget: number
+  crewCurrentWeekTarget: number
+  crewMonthlyAchievement: number
+  crewWeeklyAchievement: number
 }
 
 export interface GroupDetailData {
@@ -65,6 +81,11 @@ export interface GroupDetailData {
   period: string; periodKey: string
   crews: GroupDetailCrew[]
   groupTotal: { qty: number; settle: number; struk: number; basketSize: number; pricePoint: number }
+  // Target info
+  crewMonthlyTarget: number // monthlyTarget / crewCount
+  weeklyTargetPcts: number[] // [W1%, W2%, W3%, W4%]
+  crewWeeklyTargets: number[] // [W1, W2, W3, W4] per-crew amounts
+  currentWeek: number
 }
 
 export interface ScanResult {

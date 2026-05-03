@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Trophy, Medal, Target, TrendingUp, Users, Star, Zap, ArrowUpRight, ArrowDownRight,
-  BarChart3, Calendar, Flame, Clock, Eye, RefreshCw, Upload, ShoppingCart, Package,
+  BarChart3, Calendar, Flame, Clock, Eye, RefreshCw, Upload, ShoppingCart, Package, X,
 } from 'lucide-react'
 import { fmtRp, fmtNum, fadeIn, stagger, AnimatedCounter, SkeletonRow, AchievementBadge, CircularProgress, monthNames } from '@/lib/cms-utils'
 import type { DashboardData, CrewStat, GroupAchievement, GroupDetailData } from '@/lib/cms-types'
@@ -34,6 +34,8 @@ interface DashboardTabProps {
   groupDetailLoading: boolean
   fetchDashboard: () => void
   setActiveTab: (v: string) => void
+  crewPhotoPreview: { name: string; photo: string } | null
+  setCrewPhotoPreview: (v: { name: string; photo: string } | null) => void
 }
 
 const DashboardTab = React.memo(function DashboardTab({
@@ -42,6 +44,7 @@ const DashboardTab = React.memo(function DashboardTab({
   selectedGroupDetail, setSelectedGroupDetail,
   groupDetailData, groupDetailPeriod, setGroupDetailPeriod, groupDetailLoading,
   fetchDashboard, setActiveTab,
+  crewPhotoPreview, setCrewPhotoPreview,
 }: DashboardTabProps) {
   return (
     <TabsContent value="dashboard" className="mt-4 sm:mt-6 pb-8">
@@ -170,7 +173,7 @@ const DashboardTab = React.memo(function DashboardTab({
                           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, type: 'spring', stiffness: 180 }}
                             className="flex flex-col items-center flex-1 max-w-[150px]">
                             {/* Avatar + rank badge */}
-                            <div className="relative mb-1.5">
+                            <div className="relative mb-1.5 cursor-pointer" onClick={() => crew.photo && setCrewPhotoPreview({ name: crew.name, photo: crew.photo })}>
                               <Avatar className="w-11 h-11 sm:w-14 sm:h-14 border-2 border-gray-300 dark:border-gray-600 shadow-md">
                                 <AvatarImage src={crew.photo || ''} />
                                 <AvatarFallback className="bg-gradient-to-br from-gray-300 to-gray-500 dark:from-gray-600 dark:to-gray-800 text-white font-bold text-xs sm:text-sm">
@@ -209,7 +212,7 @@ const DashboardTab = React.memo(function DashboardTab({
                               <span className="text-2xl sm:text-3xl">👑</span>
                             </motion.div>
                             {/* Avatar with rank badge */}
-                            <div className="relative mb-1.5">
+                            <div className="relative mb-1.5 cursor-pointer" onClick={() => crew.photo && setCrewPhotoPreview({ name: crew.name, photo: crew.photo })}>
                               <Avatar className="w-14 h-14 sm:w-18 sm:h-18 border-[3px] border-amber-400 shadow-lg shadow-amber-500/30 ring-2 ring-amber-200/50 dark:ring-amber-600/30 ring-offset-2 ring-offset-background">
                                 <AvatarImage src={crew.photo || ''} />
                                 <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold text-sm sm:text-base">
@@ -247,7 +250,7 @@ const DashboardTab = React.memo(function DashboardTab({
                           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, type: 'spring', stiffness: 180 }}
                             className="flex flex-col items-center flex-1 max-w-[150px]">
                             {/* Avatar + rank badge */}
-                            <div className="relative mb-1.5">
+                            <div className="relative mb-1.5 cursor-pointer" onClick={() => crew.photo && setCrewPhotoPreview({ name: crew.name, photo: crew.photo })}>
                               <Avatar className="w-11 h-11 sm:w-14 sm:h-14 border-2 border-orange-300 dark:border-orange-700 shadow-md">
                                 <AvatarImage src={crew.photo || ''} />
                                 <AvatarFallback className="bg-gradient-to-br from-orange-300 to-orange-500 dark:from-orange-700 dark:to-orange-900 text-white font-bold text-xs sm:text-sm">
@@ -331,7 +334,7 @@ const DashboardTab = React.memo(function DashboardTab({
                               <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold">
                                 {rankMedal ? <span>{rankMedal}</span> : <span className="text-muted-foreground">{idx + 1}</span>}
                               </div>
-                              <Avatar className="w-8 h-8 shrink-0">
+                              <Avatar className="w-8 h-8 shrink-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (crew.photo) setCrewPhotoPreview({ name: crew.name, photo: crew.photo }) }}>
                                 <AvatarImage src={crew.photo || ''} />
                                 <AvatarFallback className="text-[10px] bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
                                   {crew.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -382,7 +385,7 @@ const DashboardTab = React.memo(function DashboardTab({
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-2.5">
-                                    <Avatar className={`w-8 h-8 ${idx === 0 ? 'ring-1 ring-amber-400' : ''}`}>
+                                    <Avatar className={`w-8 h-8 ${idx === 0 ? 'ring-1 ring-amber-400' : ''} cursor-pointer`} onClick={(e) => { e.stopPropagation(); if (crew.photo) setCrewPhotoPreview({ name: crew.name, photo: crew.photo }) }}>
                                       <AvatarImage src={crew.photo || ''} />
                                       <AvatarFallback className="text-xs bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
                                         {crew.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -624,6 +627,45 @@ const DashboardTab = React.memo(function DashboardTab({
         </motion.div>
       ) : null}
       </LoadingOverlay>
+
+      {/* ─── Crew Photo Preview Modal ─── */}
+      <AnimatePresence>
+        {crewPhotoPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setCrewPhotoPreview(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative flex flex-col items-center gap-4 p-6 rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-border/50"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setCrewPhotoPreview(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <Avatar className="w-28 h-28 sm:w-36 sm:h-36 border-4 border-emerald-300 dark:border-emerald-700 shadow-xl shadow-emerald-500/20">
+                <AvatarImage src={crewPhotoPreview.photo} className="object-cover" />
+                <AvatarFallback className="text-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-bold">
+                  {crewPhotoPreview.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center">
+                <p className="text-base font-bold text-foreground">{crewPhotoPreview.name}</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </TabsContent>
   )
 })
