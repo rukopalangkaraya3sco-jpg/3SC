@@ -85,7 +85,7 @@ export function getMonthRange(): { from: string; to: string } {
 }
 
 // ─── Safe Fetch with Timeout (8s) ────────────────────
-export async function safeFetch(url: string, opts?: RequestInit, timeoutMs = 8000): Promise<Response> {
+export async function safeFetch(url: string, opts?: RequestInit, timeoutMs = 30000): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {

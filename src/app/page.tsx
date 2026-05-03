@@ -291,7 +291,7 @@ export default function Home() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const r = await safeFetch('/api/claims', { method: 'POST', body: fd })
+      const r = await safeFetch('/api/claims', { method: 'POST', body: fd }, 120000)
       const d = await r.json()
       clearInterval(progressInterval)
       setUploadProgress(100)
