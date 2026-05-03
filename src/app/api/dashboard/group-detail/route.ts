@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth'
 
 // GET /api/dashboard/group-detail?groupId=xxx&period=daily
 // Returns crew list within a group with total qty, penjualan, struk count, basket size, price point
 // period: daily (default), weekly, monthly
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth) return auth as NextResponse
     const { searchParams } = new URL(request.url)
     const groupId = searchParams.get('groupId')
     const period = searchParams.get('period') || 'daily' // daily, weekly, monthly
@@ -45,6 +48,9 @@ export async function GET(request: NextRequest) {
     const weekEnd = currentWeek === 4 ? daysInMonth : Math.min(currentWeek * 7, daysInMonth)
     const weekStartStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(weekStart).padStart(2, '0')}`
     const weekEndStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(weekEnd).padStart(2, '0')}`
+    // BUGFIX: use next day after weekEnd for lt comparison
+    const weekEndNextDay = new Date(currentYear, currentMonth, weekEnd + 1)
+    const weekEndNextDayStr = `${weekEndNextDay.getFullYear()}-${String(weekEndNextDay.getMonth() + 1).padStart(2, '0')}-${String(weekEndNextDay.getDate()).padStart(2, '0')}`
 
     switch (period) {
       case 'daily':
@@ -53,8 +59,8 @@ export async function GET(request: NextRequest) {
         periodLabel = `${dayOfMonth} ${shortMonths[currentMonth]} ${currentYear}`
         break
       case 'weekly':
-        prismaDateFilter = { gte: weekStartStr, lte: weekEndStr }
-        sqlDateCondition = Prisma.sql`AND "tanggal" >= ${weekStartStr} AND "tanggal" <= ${weekEndStr}`
+        prismaDateFilter = { gte: weekStartStr, lt: weekEndNextDayStr }
+        sqlDateCondition = Prisma.sql`AND "tanggal" >= ${weekStartStr} AND "tanggal" < ${weekEndNextDayStr}`
         periodLabel = `Minggu ${currentWeek} (${weekStart}–${weekEnd})`
         break
       case 'monthly':

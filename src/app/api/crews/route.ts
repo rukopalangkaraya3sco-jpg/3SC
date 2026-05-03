@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth) return auth as NextResponse
     const { searchParams } = new URL(request.url)
     const groupId = searchParams.get('groupId')
     const search = searchParams.get('search')
@@ -11,22 +13,10 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {}
     if (groupId) where.groupId = groupId
     if (search) {
-      // SQLite case-insensitive search via LOWER()
-      const searchPattern = `%${search.toLowerCase()}%`
-      const matchingIds = await db.$queryRaw<{ id: string }[]>`
-        SELECT id FROM Crew WHERE LOWER(name) LIKE ${searchPattern} OR LOWER(employeeId) LIKE ${searchPattern}
-      `
-      if (matchingIds.length > 0) {
-        where.id = { in: matchingIds.map(m => m.id) }
-      } else {
-        // No matches
-        if (groupId) {
-          // Still return empty array but process group filter
-          const crews = await db.crew.findMany({ where: { groupId }, include: { group: true }, orderBy: { createdAt: 'asc' } })
-          return NextResponse.json(crews.length === 0 ? [] : crews.filter(() => false))
-        }
-        return NextResponse.json([])
-      }
+      where.OR = [
+        { name: { contains: search } },
+        { employeeId: { contains: search } },
+      ]
     }
 
     const crews = await db.crew.findMany({
@@ -86,6 +76,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth) return auth as NextResponse
+
     const body = await request.json()
     const { name, photo, employeeId, groupId } = body
 
@@ -118,6 +111,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth) return auth as NextResponse
+
     const body = await request.json()
     const { id, name, photo, employeeId, groupId } = body
 
@@ -159,6 +155,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth) return auth as NextResponse
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
