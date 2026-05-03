@@ -1,40 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { Prisma } from '@prisma/client'
 import * as XLSX from 'xlsx'
-
-// Helper: get today's date in WIB timezone (YYYY-MM-DD)
-function getWIBToday() {
-  const now = new Date()
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000
-  const wib = new Date(utc + 7 * 3600000)
-  return `${wib.getFullYear()}-${String(wib.getMonth() + 1).padStart(2, '0')}-${String(wib.getDate()).padStart(2, '0')}`
-}
-
-// Helper: log activity to ActivityLog (fire-and-forget)
-async function logActivity(action: string, description: string, crewName?: string, saleId?: string, metadata?: Record<string, unknown>) {
-  try {
-    await db.activityLog.create({
-      data: {
-        action,
-        description,
-        crewName: crewName || null,
-        saleId: saleId || null,
-        metadata: metadata ? JSON.stringify(metadata) : null,
-      },
-    })
-  } catch {
-    // Silently fail — activity logging should never break main operations
-  }
-}
-
-// Helper: format Rupiah short (e.g. "Rp 2.5jt")
-function fmtRpShort(n: number): string {
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)}M`
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(1)}jt`
-  if (n >= 1_000) return `Rp ${(n / 1_000).toFixed(1)}rb`
-  return `Rp ${n}`
-}
 
 // ─────────────────────────────────────────────
 // POST /api/claims — Upload Excel & Import as unclaimed sales
@@ -68,63 +34,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse Excel — supports two formats:
-    // Format A: Row 0 = title "Laporan Penjualan", Row 1 = headers, Row 2+ = data
-    // Format B: Row 0 = headers, Row 1+ = data (no title row)
+    // Parse Excel — row 1 is title "Laporan Penjualan", row 2 is headers
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const workbook = XLSX.read(buffer, { type: 'buffer' })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
+    const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' })
 
-    // Use header:1 mode to get raw arrays — this lets us detect the header row properly
-    const rawRows = XLSX.utils.sheet_to_json<(string | number)[]>(worksheet, { header: 1, defval: '' })
-
-    if (rawRows.length === 0) {
+    if (jsonData.length === 0) {
       return NextResponse.json({ error: 'File kosong atau tidak dapat dibaca' }, { status: 400 })
     }
 
-    // Find the header row by looking for required column names
+    // Validate required columns from header row (first data row = actual headers)
+    const headerRow = jsonData[0]
     const requiredColumns = ['Tanggal', 'Kode Extend', 'Settle', 'Qty']
-    let headerRowIndex = -1
-    for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
-      const rowValues = rawRows[i].map(v => String(v).trim())
-      const hasAllRequired = requiredColumns.every(col => rowValues.includes(col))
-      if (hasAllRequired) {
-        headerRowIndex = i
-        break
-      }
-    }
-
-    if (headerRowIndex === -1) {
+    const missingColumns = requiredColumns.filter((col) => !(col in headerRow))
+    // Also check optional columns that we'll store if present
+    const optionalColumns = ['ID Penjualan', 'Status Retention', 'Retention Code', 'Pembayaran', 'Program', 'Channel Stock', 'Brand', 'Dept', 'Modul', 'Ukuran', 'HJP', 'Netto', 'Diskon', 'Diskon Rp', 'Potongan', 'Potongan V']
+    if (missingColumns.length > 0) {
       return NextResponse.json(
         { error: `Format file tidak valid. Pastikan file memiliki kolom: Tanggal, Kode Extend, Settle, Qty` },
         { status: 400 },
       )
     }
 
-    // Extract column names from the header row
-    const headerCols = rawRows[headerRowIndex].map(v => String(v).trim())
-    // Build a column index map
-    const colIndex: Record<string, number> = {}
-    for (let c = 0; c < headerCols.length; c++) {
-      if (headerCols[c]) colIndex[headerCols[c]] = c
-    }
-
-    // Helper to get cell value by column name
-    const getVal = (row: (string | number)[], colName: string): string | number => {
-      const idx = colIndex[colName]
-      return idx !== undefined ? row[idx] : ''
-    }
-
-    // Data rows start after the header row
-    const dataRows = rawRows.slice(headerRowIndex + 1).map(row => {
-      const obj: Record<string, unknown> = {}
-      for (const [colName, idx] of Object.entries(colIndex)) {
-        obj[colName] = row[idx] !== undefined ? row[idx] : ''
-      }
-      return obj
-    })
+    // Data rows start after header row
+    const dataRows = jsonData.slice(1)
 
     const uniqueProducts = new Set<string>()
     let totalQty = 0
@@ -140,9 +76,7 @@ export async function POST(request: NextRequest) {
     }[] = []
 
     for (const row of dataRows) {
-      // Normalize tanggal: strip time portion, keep only date (YYYY-MM-DD)
-      const rawTanggal = String(row['Tanggal'] || '').trim()
-      const tanggal = rawTanggal.replace(/\s.*$/, '').substring(0, 10) || rawTanggal.substring(0, 10)
+      const tanggal = String(row['Tanggal'] || '')
       const idPenjualan = String(row['ID Penjualan'] || '')
       const statusRetention = String(row['Status Retention'] || '')
       const retentionCode = String(row['Retention Code'] || '')
@@ -314,9 +248,6 @@ export async function POST(request: NextRequest) {
       })),
     })
 
-    // Log upload activity
-    logActivity('UPLOAD', `Upload ${created.count} data penjualan (${fmtRpShort(newTotalSettle)})`, undefined, undefined, { totalRows: created.count, totalSettle: newTotalSettle, duplicateRows: duplicateCount, uniqueProducts: newProducts.size })
-
     return NextResponse.json({
       success: true,
       message: duplicateCount > 0
@@ -367,58 +298,26 @@ export async function GET(request: NextRequest) {
       where.crewId = crewId
     }
 
-    // Collect AND conditions that need OR (search, date) — combine them properly
-    const andConditions: Record<string, any>[] = []
-
-    // Search across kodeExtend, brand, dept, and crew name (case-insensitive for SQLite via LOWER())
+    // Search across kodeExtend, brand, dept, and crew name (PG-01: case-insensitive for PostgreSQL)
     if (search) {
-      // SQLite doesn't support Prisma's mode:'insensitive', so use raw query with LOWER()
-      const searchPattern = `%${search.toLowerCase()}%`
-      const matchingIds = await db.$queryRaw<{ id: string }[]>`
-        SELECT DISTINCT s.id FROM Sale s
-        LEFT JOIN Crew c ON s.crewId = c.id
-        WHERE LOWER(s.kodeExtend) LIKE ${searchPattern}
-           OR LOWER(s.brand) LIKE ${searchPattern}
-           OR LOWER(s.dept) LIKE ${searchPattern}
-           ${claimed !== 'false' ? Prisma.sql`OR LOWER(c.name) LIKE ${searchPattern}` : Prisma.empty}
-      `
-      if (matchingIds.length > 0) {
-        andConditions.push({ id: { in: matchingIds.map(m => m.id) } })
-      } else {
-        // No matches — return empty result immediately
-        return NextResponse.json({ sales: [], total: 0, page, totalPages: 1, summary: { totalQty: 0, totalSettle: 0, totalStruk: 0, basketSize: 0, pricePoint: 0 } })
+      const searchConditions: Record<string, any>[] = [
+        { kodeExtend: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+        { dept: { contains: search, mode: 'insensitive' } },
+      ]
+      // Only add crew name search if there might be a crew relation
+      if (claimed !== 'false') {
+        searchConditions.push({ crew: { name: { contains: search, mode: 'insensitive' } } })
       }
+      where.OR = searchConditions
     }
 
     // Date range filter on tanggal
-    // Handle both "2026-05-03" (date-only) and "2026-05-03 09:03" (with time) formats
     if (dateFrom || dateTo) {
-      const tanggalOrConditions: Record<string, any>[] = []
-      if (dateFrom && dateTo) {
-        // Same-day filter: use startsWith to catch both "2026-05-03" and "2026-05-03 09:03"
-        if (dateFrom === dateTo) {
-          tanggalOrConditions.push({ tanggal: dateFrom })
-          tanggalOrConditions.push({ tanggal: { startsWith: dateFrom } })
-        } else {
-          // Range filter: gte/lte works for date-only strings
-          // Also add startsWith for from-date to catch "2026-05-03 09:03" >= "2026-05-03"
-          tanggalOrConditions.push({ tanggal: { gte: dateFrom, lte: dateTo } })
-          tanggalOrConditions.push({ tanggal: { startsWith: dateFrom } })
-          tanggalOrConditions.push({ tanggal: { startsWith: dateTo } })
-        }
-      } else if (dateFrom) {
-        tanggalOrConditions.push({ tanggal: { gte: dateFrom } })
-        tanggalOrConditions.push({ tanggal: { startsWith: dateFrom } })
-      } else {
-        tanggalOrConditions.push({ tanggal: { lte: dateTo } })
-        tanggalOrConditions.push({ tanggal: { startsWith: dateTo } })
-      }
-      andConditions.push({ OR: tanggalOrConditions })
-    }
-
-    // Combine all AND conditions
-    if (andConditions.length > 0) {
-      where.AND = andConditions
+      const tanggalFilter: Record<string, unknown> = {}
+      if (dateFrom) tanggalFilter.gte = dateFrom
+      if (dateTo) tanggalFilter.lte = dateTo
+      where.tanggal = tanggalFilter
     }
 
     // Program filter
@@ -464,52 +363,6 @@ export async function GET(request: NextRequest) {
     // Price Point = average price per item
     const pricePoint = totalQty > 0 ? totalSettle / totalQty : 0
 
-    // ── Overview: aggregate counts across ALL data (not just current page) ──
-    // Build a base where clause without crewId filter for overview aggregation
-    const overviewBase: Record<string, any> = {}
-    if (andConditions.length > 0) {
-      overviewBase.AND = andConditions
-    }
-    if (program) {
-      overviewBase.program = program
-    }
-
-    const todayStr = getWIBToday()
-
-    const [unclaimedAgg, claimedAgg, todayActAgg] = await Promise.all([
-      // Unclaimed: crewId is null
-      db.sale.aggregate({
-        _count: { id: true },
-        _sum: { settle: true },
-        where: { ...overviewBase, crewId: null },
-      }),
-      // Claimed: crewId is not null
-      db.sale.aggregate({
-        _count: { id: true },
-        _sum: { settle: true },
-        where: { ...overviewBase, crewId: { not: null } },
-      }),
-      // Today's activity: claimedAt within today's date range (WIB)
-      // Use gte/lte range since claimedAt is a DateTime field (startsWith not supported)
-      db.sale.count({
-        where: {
-          ...overviewBase,
-          claimedAt: {
-            gte: new Date(`${todayStr}T00:00:00.000Z`),
-            lt: new Date(`${todayStr}T23:59:59.999Z`),
-          },
-        },
-      }),
-    ])
-
-    const overview = {
-      unclaimedCount: unclaimedAgg._count.id,
-      unclaimedSettle: unclaimedAgg._sum.settle ?? 0,
-      claimedCount: claimedAgg._count.id,
-      claimedSettle: claimedAgg._sum.settle ?? 0,
-      todayActivity: todayActAgg,
-    }
-
     return NextResponse.json({
       sales,
       total,
@@ -522,7 +375,6 @@ export async function GET(request: NextRequest) {
         basketSize,
         pricePoint,
       },
-      overview,
     })
   } catch (error) {
     console.error('Get claims error:', error)
@@ -668,9 +520,6 @@ export async function PUT(request: NextRequest) {
       crewId,
       crewName: crew.name,
     })
-
-    // Log claim activity (fire-and-forget after response)
-    logActivity('CLAIM', `Claim ${claimedCount} data ke ${crew.name} (${fmtRpShort(totalSettle)})`, crew.name, undefined, { claimedCount, totalSettle, crewId: crew.id })
   } catch (error) {
     console.error('Claim sales error:', error)
     return NextResponse.json(
@@ -744,9 +593,6 @@ export async function PATCH(request: NextRequest) {
     })
 
     return NextResponse.json({ success: true, message: 'Data berhasil diperbarui', sale: updated })
-
-    // Log edit activity
-    logActivity('EDIT', `Edit data ${sale.kodeExtend}`, sale.crew?.name || undefined, sale.id, { changedFields: Object.keys(data) })
   } catch (error) {
     console.error('Edit claim error:', error)
     return NextResponse.json({ error: 'Terjadi kesalahan saat mengubah data' }, { status: 500 })
@@ -771,9 +617,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.sale.delete({ where: { id } })
-
-    // Log delete activity
-    logActivity('DELETE', `Hapus data ${sale.kodeExtend} (${fmtRpShort(sale.settle)})`, sale.crew?.name || undefined, sale.id)
 
     return NextResponse.json({ success: true, message: 'Data penjualan berhasil dihapus' })
   } catch (error) {
