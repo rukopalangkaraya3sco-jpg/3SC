@@ -1,7 +1,6 @@
-// ─────────────────────────────────────────────────────────
-// CMS Crew Management System — Prisma Schema (PostgreSQL)
-// Developer: Ahtjong Labs
-// ─────────────────────────────────────────────────────────
+// ─── PRODUCTION SCHEMA (PostgreSQL / Neon) ───
+// Copy this file to schema.prisma when deploying to Vercel with Neon DB
+// Then run: npx prisma generate && npx prisma db push
 
 generator client {
   provider = "prisma-client-js"
@@ -73,15 +72,11 @@ model Sale {
   channelStock     String?
   claimedAt        DateTime?
   createdAt        DateTime @default(now())
-}
 
-model ActivityLog {
-  id          String   @id @default(cuid())
-  action      String
-  description String
-  crewName    String?
-  saleId      String?
-  metadata    String?  // JSON string for extra data
-  createdAt   DateTime @default(now())
+  @@index([tanggal])
+  @@index([kodeExtend])
+  @@index([crewId])
+  @@index([program])
+  @@index([tanggal, kodeExtend])
+  @@index([idPenjualan])
 }
-
