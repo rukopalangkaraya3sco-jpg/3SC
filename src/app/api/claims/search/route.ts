@@ -57,10 +57,14 @@ export async function GET(request: NextRequest) {
     // SQLite LIKE is case-insensitive for ASCII by default.
     // We also uppercase the search for kodeExtend since that field stores UPPERCASE values,
     // ensuring matches regardless of input case.
+    // Barcode scanner trim: kodeExtend search only uses first 9 chars (scanner often reads 11+ chars).
     if (search) {
+      // For kodeExtend: trim to 9 chars max (barcode scanner may send 11+ digits)
+      const kodeSearch = search.length > 9 ? search.slice(0, 9) : search
+
       const searchOr: Record<string, any>[] = [
-        { kodeExtend: { contains: search.toUpperCase() } },
-        { kodeExtend: { contains: search } },
+        { kodeExtend: { contains: kodeSearch.toUpperCase() } },
+        { kodeExtend: { contains: kodeSearch } },
         { brand: { contains: search } },
         { dept: { contains: search } },
         { modul: { contains: search } },

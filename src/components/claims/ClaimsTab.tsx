@@ -255,7 +255,12 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
   // Does NOT trigger parent state change, preventing full page.tsx re-render on every keystroke.
   const handleSearchChange = React.useCallback((value: string) => {
     setSearchText(value)
-    const trimmed = value.replace(/[\r\n]+$/g, '').trim()
+    let trimmed = value.replace(/[\r\n]+$/g, '').trim()
+    // Barcode scanner trim: if input > 9 chars (scanner reads 11+ digits), keep only first 9
+    if (trimmed.length > 9) {
+      trimmed = trimmed.slice(0, 9)
+      setSearchText(trimmed)
+    }
     if (localDebounceRef.current) clearTimeout(localDebounceRef.current)
     if (trimmed === '') {
       // Clear local search, sync parent to empty so it fetches fresh data
@@ -282,7 +287,12 @@ const ClaimsTab = React.memo(function ClaimsTab(props: ClaimsTabProps) {
     if (e.key === 'Enter') {
       e.preventDefault()
       if (localDebounceRef.current) clearTimeout(localDebounceRef.current)
-      const trimmed = searchText.replace(/[\r\n]+$/g, '').trim()
+      let trimmed = searchText.replace(/[\r\n]+$/g, '').trim()
+      // Barcode scanner trim: if input > 9 chars (scanner reads 11+ digits), keep only first 9
+      // so kodeExtend search matches properly. Display trimmed value in input.
+      if (trimmed.length > 9) {
+        trimmed = trimmed.slice(0, 9)
+      }
       setSearchText(trimmed)
       // Only use local search — NO parent state change, no page re-render
       fetchLocalSearch(trimmed, 1)
